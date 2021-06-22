@@ -226,6 +226,15 @@ namespace NHB3
             return new JObject();
         }
 
+        public JObject getOrderBook(string algo)
+        {
+            var orderBookResponse = api.get($"/main/api/v2/hashpower/orderBook?algorithm={algo}", false);
+            JObject orderBookObject = JsonConvert.DeserializeObject<JObject>(orderBookResponse);
+
+
+            return orderBookObject;
+        }
+
         public ApiSettings readSettings() { 
             String fileName = Path.Combine(Directory.GetCurrentDirectory(), "settings.json");
             if (File.Exists(fileName))
