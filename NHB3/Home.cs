@@ -205,9 +205,9 @@ namespace NHB3
 
             toolStripStatusLabel1.Text = "Working";
 
-            BotSettings saved = JsonConvert.DeserializeObject<BotSettings>(File.ReadAllText(@fileName));
-			Console.ForegroundColor = ConsoleColor.Green;
-			Console.WriteLine("bot iteration tasks {0} {1} {2}", saved.reffilOrder, saved.lowerPrice, saved.increasePrice);
+   //         BotSettings saved = JsonConvert.DeserializeObject<BotSettings>(File.ReadAllText(@fileName));
+			//Console.ForegroundColor = ConsoleColor.Green;
+			//Console.WriteLine("bot iteration tasks {0} {1} {2}", saved.reffilOrder, saved.lowerPrice, saved.increasePrice);
 
 			Control.CheckForIllegalCrossThreadCalls = false;
 
