@@ -198,10 +198,10 @@ namespace NHB3
             if (!botRunning)
 				return;
 
-			//read needed data
-			String fileName = Path.Combine(Directory.GetCurrentDirectory(), "bot.json");
-			if (!File.Exists(fileName))
-				return;
+			////read needed data
+			//String fileName = Path.Combine(Directory.GetCurrentDirectory(), "bot.json");
+			//if (!File.Exists(fileName))
+			//	return;
 
             toolStripStatusLabel1.Text = "Working";
 
