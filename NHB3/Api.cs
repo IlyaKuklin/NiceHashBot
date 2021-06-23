@@ -208,5 +208,10 @@ namespace NHB3
             }
             return response.Content;
         }
+
+        public void switchUrl(string url)
+		{
+            this.urlRoot = url;
+		}
     }
 }

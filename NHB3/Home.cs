@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using NHB3.Types;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -8,7 +9,9 @@ using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using static NHB3.ApiConnect;
@@ -50,6 +53,9 @@ namespace NHB3
                     TimeSpan.FromSeconds(60));
             }
         }
+
+        public Dictionary<string, float> TotalSpeedByMarket { get; set; } = new Dictionary<string, float>();
+        public Dictionary<string, float> MinLimitByAlgoritm { get; set; } = new Dictionary<string, float>();
 
         private void api_Click(object sender, EventArgs e)
         {
@@ -186,100 +192,142 @@ namespace NHB3
             refreshOrders(false);
         }
         
-        private void runBot() {
-            if (!botRunning) {
-                return;
-            }
+        private void runBot()
+		{
+            // START
+            if (!botRunning)
+				return;
 
-            //read needed data
-            String fileName = Path.Combine(Directory.GetCurrentDirectory(), "bot.json");
-            if (!File.Exists(fileName))
-            {
-                return;
-            }
+			//read needed data
+			String fileName = Path.Combine(Directory.GetCurrentDirectory(), "bot.json");
+			if (!File.Exists(fileName))
+				return;
 
             toolStripStatusLabel1.Text = "Working";
 
             BotSettings saved = JsonConvert.DeserializeObject<BotSettings>(File.ReadAllText(@fileName));
-            Console.ForegroundColor = ConsoleColor.Green;
-            Console.WriteLine("bot iteration tasks {0} {1} {2}", saved.reffilOrder, saved.lowerPrice, saved.increasePrice);
+			Console.ForegroundColor = ConsoleColor.Green;
+			Console.WriteLine("bot iteration tasks {0} {1} {2}", saved.reffilOrder, saved.lowerPrice, saved.increasePrice);
 
-            Control.CheckForIllegalCrossThreadCalls = false;
-            refreshOrders(true);
+			Control.CheckForIllegalCrossThreadCalls = false;
 
-            if (saved.lowerPrice || saved.increasePrice) {
-                refreshMarket();
-            }
+			refreshOrders(true);
+			Console.ForegroundColor = ConsoleColor.White;
+			Console.WriteLine("orders to process: {0}", orders.Count);
 
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.WriteLine("orders to process: {0}", orders.Count);
+			var marketNames = ac.getMarkets();
+			JArray jAlgorithms = ac.algorithms;
 
-            //do refill??
-            if (saved.reffilOrder) {
-                foreach (JObject order in orders)
-                {
-                    float payed = float.Parse("" + order["payedAmount"], CultureInfo.InvariantCulture);
-                    float available = float.Parse("" + order["availableAmount"], CultureInfo.InvariantCulture);
-                    float spent_factor = payed/available*100;
-                    Console.ForegroundColor = ConsoleColor.Cyan;
-                    Console.WriteLine("?refill?; order {0}, payed {1}, available {2}, percent {3}", order["id"], payed, available, spent_factor.ToString("0.00"));
+			var myOrders = getMyOrders();
+            var myAlgorithmNames = myOrders.Select(x => x.AlgorithmName).Distinct().ToList();
+            var myMarketNames = myOrders.Select(x => x.MarketName).Distinct().ToList();
+			var allBookOrders = getAllOrders(marketNames, jAlgorithms, myAlgorithmNames, myMarketNames);
+			var jsonPrice = getJsonPrice();
 
-                    if (spent_factor > 90)
-                    {
-                        JObject algo = ac.getAlgo(""+order["algorithm"]["algorithm"]);
-                        Console.ForegroundColor = ConsoleColor.Cyan;
-                        Console.WriteLine("===> refill order for {0}", algo["minimalOrderAmount"]);
-                        ac.refillOrder(""+order["id"], ""+algo["minimalOrderAmount"]);
-                    }
+            var processedCombinations = new List<string>();
+
+			foreach (var myOrder in myOrders)
+			{
+                var combinationKey = $"{myOrder.AlgorithmName}.{myOrder.MarketName}";
+                var minLimit = this.MinLimitByAlgoritm[myOrder.AlgorithmName];
+
+                if (myOrder.Price > jsonPrice && myOrder.Limit > minLimit)
+				{
+                    ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, myOrder.Price.ToString(new CultureInfo("en-US")), "0.01");
                 }
-            }
+                else
+				{
+                    if (processedCombinations.Contains(combinationKey)) continue;
 
-            //do speed adjust??
-            if (saved.lowerPrice || saved.increasePrice) {
-                foreach (JObject order in orders) {
-                    string order_type = "" + order["type"]["code"];
-                    if (order_type.Equals("STANDARD"))
-                    {
-                        JObject algo = ac.getAlgo("" + order["algorithm"]["algorithm"]);
-                        float order_speed = float.Parse("" + order["acceptedCurrentSpeed"], CultureInfo.InvariantCulture);
-                        float rigs_count = float.Parse("" + order["rigsCount"], CultureInfo.InvariantCulture);
-                        float order_price = float.Parse("" + order["price"], CultureInfo.InvariantCulture);
-                        float price_step_down = float.Parse("" + algo["priceDownStep"], CultureInfo.InvariantCulture);
+					var targetOrders = allBookOrders
+						.Where(x => x.MarketName == myOrder.MarketName && x.AlgorithmName == myOrder.AlgorithmName && x.Price <= jsonPrice)
+						.OrderByDescending(x => x.Price)
+						.ToList();
 
-                        Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine("?adjust price?; order {0}, speed {1}, rigs {2}, price {3}, step_down {4}", order["id"], order_speed, rigs_count, order_price, price_step_down);
+                    var totalLimit = this.TotalSpeedByMarket[$"{myOrder.AlgorithmName}.{myOrder.MarketName}"];
+                    var currentLimit = 0.0f;
 
-                        if (saved.increasePrice && (order_speed == 0 || rigs_count == 0)) {
-                            float new_price = (float)Math.Round(order_price + (price_step_down * -1), 4);
-                            Console.ForegroundColor = ConsoleColor.Yellow;
-                            Console.WriteLine("===> price up order to {0}", new_price);
-                            ac.updateOrder("" + order["algorithm"]["algorithm"], "" + order["id"], new_price.ToString(new CultureInfo("en-US")), "" + order["limit"]);
-                        } else if (saved.lowerPrice && (order_speed > 0 || rigs_count > 0)) {
-                            Dictionary<string, float> market = getOrderPriceRangesForAlgoAndMarket("" + order["algorithm"]["algorithm"], "" + order["market"]);
-                            var list = market.Keys.ToList();
-                            list.Sort();
-
-                            int idx = 0;
-                            foreach (var key in list)
-                            {
-                                float curr_tier_price = float.Parse(key, CultureInfo.InvariantCulture);
-                                if (key.Equals(""+order_price)) {
-                                    break;
-                                }
-                                idx++;
-                            }
-
-                            if (idx > 1) {
-                                float new_price = (float)Math.Round(order_price + price_step_down, 4);
-                                Console.ForegroundColor = ConsoleColor.Yellow;
-                                Console.WriteLine("===> price down order to {0}", new_price);
-                                ac.updateOrder("" + order["algorithm"]["algorithm"], "" + order["id"], new_price.ToString(new CultureInfo("en-US")), "" + order["limit"]);
-                            }
+					foreach (var targetOrder in targetOrders)
+					{
+                        currentLimit += targetOrder.Limit;
+                        if (targetOrder.Limit == 0 || currentLimit >= totalLimit)
+                        {
+                            ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, (myOrder.Price += 0.0001f).ToString(new CultureInfo("en-US")), myOrder.Limit.ToString(new CultureInfo("en-US")));
+                            processedCombinations.Add(combinationKey);
+                            break;
                         }
                     }
-                }
-            }
+				}
+			}
+
             toolStripStatusLabel1.Text = "Idle";
+		}
+
+		private List<Orders> getAllOrders(List<string> marketNames, JArray jAlgorithms, List<string> myAlgorithmNames, List<string> myMarketNames)
+        {
+            List<Orders> allBookOrders = new List<Orders>();
+            this.MinLimitByAlgoritm.Clear();
+
+            foreach (var jAlgorithm in jAlgorithms)
+			{
+				var algorithmName = jAlgorithm["algorithm"].ToString();
+                if (!myAlgorithmNames.Contains(algorithmName)) continue;
+
+                var minSpeedLimit = (float)Math.Round(Convert.ToDouble(jAlgorithm["minSpeedLimit"].ToString()), 4);
+                this.MinLimitByAlgoritm.Add(algorithmName, minSpeedLimit);
+
+                var jOrders = ac.getOrderBook(algorithmName, true);
+				var jStats = jOrders["stats"];
+
+				foreach (var marketName in marketNames)
+				{
+                    if (!myMarketNames.Contains(marketName)) continue;
+
+					var jMarketOrders = jStats[marketName]?["orders"];
+
+                    var totalSpeed = jStats[marketName]?["totalSpeed"].ToString();
+                    var key = $"{algorithmName}.{marketName}";
+                    if (totalSpeed != null && !this.TotalSpeedByMarket.ContainsKey(key))
+                        this.TotalSpeedByMarket.Add(key, 0);
+                    this.TotalSpeedByMarket[key] = (float)Math.Round(Convert.ToDouble(totalSpeed), 4);
+
+					if (jMarketOrders != null)
+					{
+						var marketBookOrders = JsonConvert.DeserializeObject<List<Orders>>(jMarketOrders.ToString());
+						marketBookOrders.ForEach(x => { x.MarketName = marketName; x.AlgorithmName = algorithmName; });
+						allBookOrders.AddRange(marketBookOrders);
+					}
+				}
+			}
+            return allBookOrders.Where(x => x.Alive).ToList();
+		}
+
+        private List<MyOrder> getMyOrders()
+        {
+            var myOrders = new List<MyOrder>();
+            foreach (var jOrder in orders)
+            {
+                var myOrder = JsonConvert.DeserializeObject<MyOrder>(jOrder.ToString());
+                myOrder.MarketName = jOrder["market"].ToString();
+                myOrder.AlgorithmName = jOrder["algorithm"]["algorithm"].ToString();
+                myOrders.Add(myOrder);
+            }
+            return myOrders;
+        }
+
+        private static float getJsonPrice()
+        {
+            var request = WebRequest.Create("http://cl12312.tw1.ru/test.json");
+            var response = request.GetResponse();
+            float jsonPrice = 0;
+            using (Stream dataStream = response.GetResponseStream())
+            {
+                var reader = new StreamReader(dataStream);
+                var responseFromServer = reader.ReadToEnd();
+                var dynamicJson = JsonConvert.DeserializeObject<dynamic>(responseFromServer);
+                jsonPrice = (float)Math.Round(Convert.ToDouble(dynamicJson.btc_revenue.Value), 4);
+            }
+            return jsonPrice;
         }
 
         private Dictionary<string, float> getOrderPriceRangesForAlgoAndMarket(string oa, string om)

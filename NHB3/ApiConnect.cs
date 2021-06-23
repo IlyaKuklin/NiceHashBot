@@ -226,14 +226,27 @@ namespace NHB3
             return new JObject();
         }
 
-        public JObject getOrderBook(string algo)
+        public JObject getOrderBook(string algo, bool forceProd = false)
         {
-            var orderBookResponse = api.get($"/main/api/v2/hashpower/orderBook?algorithm={algo}", false);
+            if (forceProd)
+                this.api.switchUrl(getApiUrl(1));
+
+
+            var orderBookResponse = api.get($"/main/api/v2/hashpower/orderBook?algorithm={algo}&size=500", true);
             JObject orderBookObject = JsonConvert.DeserializeObject<JObject>(orderBookResponse);
 
 
+            if (forceProd)
+                this.api.switchUrl(getApiUrl(99));
+
             return orderBookObject;
         }
+
+        public List<string> getMarkets()
+		{
+            var marketsResponse = api.get("/main/api/v2/mining/markets", false);
+            return JsonConvert.DeserializeObject<List<string>>(marketsResponse);
+		}
 
         public ApiSettings readSettings() { 
             String fileName = Path.Combine(Directory.GetCurrentDirectory(), "settings.json");
