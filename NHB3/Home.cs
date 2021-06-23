@@ -197,17 +197,7 @@ namespace NHB3
             // START
             if (!botRunning)
 				return;
-
-			////read needed data
-			//String fileName = Path.Combine(Directory.GetCurrentDirectory(), "bot.json");
-			//if (!File.Exists(fileName))
-			//	return;
-
             toolStripStatusLabel1.Text = "Working";
-
-   //         BotSettings saved = JsonConvert.DeserializeObject<BotSettings>(File.ReadAllText(@fileName));
-			//Console.ForegroundColor = ConsoleColor.Green;
-			//Console.WriteLine("bot iteration tasks {0} {1} {2}", saved.reffilOrder, saved.lowerPrice, saved.increasePrice);
 
 			Control.CheckForIllegalCrossThreadCalls = false;
 
@@ -221,7 +211,8 @@ namespace NHB3
 			var myOrders = getMyOrders();
             var myAlgorithmNames = myOrders.Select(x => x.AlgorithmName).Distinct().ToList();
             var myMarketNames = myOrders.Select(x => x.MarketName).Distinct().ToList();
-			var allBookOrders = getAllOrders(marketNames, jAlgorithms, myAlgorithmNames, myMarketNames);
+            var myOrderIds = myOrders.Select(x => x.Id).ToList();
+			var allBookOrders = getAllOrders(marketNames, jAlgorithms, myAlgorithmNames, myMarketNames).Where(x => !myOrderIds.Contains(x.Id)).ToList();
 			var jsonPrice = getJsonPrice();
 
             var processedCombinations = new List<string>();
@@ -240,7 +231,7 @@ namespace NHB3
                     if (processedCombinations.Contains(combinationKey)) continue;
 
 					var targetOrders = allBookOrders
-						.Where(x => x.MarketName == myOrder.MarketName && x.AlgorithmName == myOrder.AlgorithmName && x.Price <= jsonPrice)
+						.Where(x => x.MarketName == myOrder.MarketName && x.AlgorithmName == myOrder.AlgorithmName && x.Price <= 2)
 						.OrderByDescending(x => x.Price)
 						.ToList();
 
