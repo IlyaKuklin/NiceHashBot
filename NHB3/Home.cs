@@ -276,7 +276,7 @@ namespace NHB3
                 var minSpeedLimit = (float)Math.Round(Convert.ToDouble(jAlgorithm["minSpeedLimit"].ToString()), 4);
                 this.MinLimitByAlgoritm.Add(algorithmName, minSpeedLimit);
 
-                var jOrders = ac.getOrderBook(algorithmName, true);
+                var jOrders = ac.getOrderBook(algorithmName, false);
 				var jStats = jOrders["stats"];
 
 				foreach (var marketName in marketNames)
