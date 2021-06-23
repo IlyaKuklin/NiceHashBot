@@ -231,7 +231,7 @@ namespace NHB3
                     if (processedCombinations.Contains(combinationKey)) continue;
 
 					var targetOrders = allBookOrders
-						.Where(x => x.MarketName == myOrder.MarketName && x.AlgorithmName == myOrder.AlgorithmName && x.Price <= 2)
+						.Where(x => x.MarketName == myOrder.MarketName && x.AlgorithmName == myOrder.AlgorithmName && x.Price <= jsonPrice)
 						.OrderByDescending(x => x.Price)
 						.ToList();
 
