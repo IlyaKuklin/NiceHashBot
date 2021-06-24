@@ -34,8 +34,6 @@ namespace NHB3
             InitializeComponent();
             ac = new ApiConnect();
 
-            
-
             ApiSettings saved = ac.readSettings();
 
             if (saved.OrganizationID != null) {
@@ -57,7 +55,7 @@ namespace NHB3
                     e => runBot(),
                     null,
                     TimeSpan.Zero,
-                    TimeSpan.FromSeconds(5000));
+                    TimeSpan.FromSeconds(5));
             }
         }
 
@@ -205,9 +203,18 @@ namespace NHB3
             // START
             if (!botRunning)
 				return;
+
+            String fileName = Path.Combine(Directory.GetCurrentDirectory(), "bot.json");
+            if (!File.Exists(fileName))
+            {
+                return;
+            }
+
             toolStripStatusLabel1.Text = "Working";
 
-			Control.CheckForIllegalCrossThreadCalls = false;
+            BotSettings botSettings = JsonConvert.DeserializeObject<BotSettings>(File.ReadAllText(@fileName));
+
+            Control.CheckForIllegalCrossThreadCalls = false;
 
 			refreshOrders(true);
 			Console.ForegroundColor = ConsoleColor.White;
@@ -221,24 +228,24 @@ namespace NHB3
             var myMarketNames = myOrders.Select(x => x.MarketName).Distinct().ToList();
             var myOrderIds = myOrders.Select(x => x.Id).ToList();
 			var allBookOrders = getAllOrders(marketNames, jAlgorithms, myAlgorithmNames, myMarketNames).Where(x => !myOrderIds.Contains(x.Id)).ToList();
-			var jsonPrice = getJsonPrice();
-
-            //var jsonPrice = 1.500f;
+			var jsonPrice = getJsonPrice(botSettings.jsonSettingsUrl);
 
             var processedCombinations = new List<string>();
 
+            bool needRaise = true;
+            float targetPrice = 0.0f;
 			foreach (var myOrder in myOrders)
 			{
                 var combinationKey = $"{myOrder.AlgorithmName}.{myOrder.MarketName}";
                 var minLimit = this.MinLimitByAlgoritm[myOrder.AlgorithmName];
 
-                if (myOrder.Price > jsonPrice && myOrder.Limit > minLimit)
+                if ((myOrder.Price > jsonPrice || (myOrder.Price > targetPrice && targetPrice != 0.0f)) && myOrder.Limit > minLimit)
 				{
 					slowDownOrder(myOrder);
 				}
 				else
 				{
-                    if (processedCombinations.Contains(combinationKey)) continue;
+                    if (processedCombinations.Contains(combinationKey) || !needRaise) continue;
 
 					var targetOrders = allBookOrders
 						.Where(x => x.MarketName == myOrder.MarketName && x.AlgorithmName == myOrder.AlgorithmName && x.Price <= jsonPrice)
@@ -253,13 +260,22 @@ namespace NHB3
                         currentLimit += targetOrder.Limit;
                         if (targetOrder.Limit == 0 || currentLimit >= totalLimit)
                         {
-                            var tp = (float)Math.Round(targetOrder.Price + 0.0001f, 4);
-                            var existingCorrectOrder = myOrders.FirstOrDefault(x => x.Price == tp && x.Limit > this.MinLimitByAlgoritm[myOrder.AlgorithmName]);
-                            if (existingCorrectOrder != null) break;
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.WriteLine($"Цена конкурирующего ордера: {targetOrder.Price}");
+
+                            targetPrice = (float)Math.Round(targetOrder.Price + 0.0001f, 4);
+                            var existingCorrectOrder = myOrders.FirstOrDefault(x => x.Price == targetPrice && x.Limit > this.MinLimitByAlgoritm[myOrder.AlgorithmName]);
+                            if (existingCorrectOrder != null)
+                            {
+                                needRaise = false;
+                                break;
+                            }
 
                             if (myOrder.Price <= targetOrder.Price)
 							{
-                                ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, (targetOrder.Price += 0.0001f).ToString(new CultureInfo("en-US")), (myOrder.Limit + 0.01f).ToString(new CultureInfo("en-US")));
+                                Console.ForegroundColor = ConsoleColor.Yellow;
+                                Console.WriteLine($"Повышаем цену и скорость ордера {myOrder.Id}");
+                                ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, targetPrice.ToString(new CultureInfo("en-US")), (targetOrder.Limit + botSettings.limitIncrease).ToString(new CultureInfo("en-US")));
                                 processedCombinations.Add(combinationKey);
                             }
                             else if (myOrder.Price > targetOrder.Price)
@@ -344,9 +360,9 @@ namespace NHB3
             return myOrders.OrderByDescending(x => x.Price).ToList();
         }
 
-        private static float getJsonPrice()
+        private static float getJsonPrice(string url)
         {
-            var request = WebRequest.Create("http://cl12312.tw1.ru/test.json");
+            var request = WebRequest.Create(url);
             var response = request.GetResponse();
             float jsonPrice = 0;
             using (Stream dataStream = response.GetResponseStream())
