@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -226,20 +227,24 @@ namespace NHB3
             return new JObject();
         }
 
-        public JObject getOrderBook(string algo, bool forceProd = false)
+        public JObject getOrderBook(string algo)
         {
-            if (forceProd)
-                this.api.switchUrl(getApiUrl(1));
-
-
             var orderBookResponse = api.get($"/main/api/v2/hashpower/orderBook?algorithm={algo}&size=500", true);
             JObject orderBookObject = JsonConvert.DeserializeObject<JObject>(orderBookResponse);
-
-
-            if (forceProd)
-                this.api.switchUrl(getApiUrl(99));
-
             return orderBookObject;
+        }
+
+        public JObject getOrderBookTest(string algo)
+		{
+            var request = WebRequest.Create($"https://api2.nicehash.com/main/api/v2/hashpower/orderBook?algorithm={algo}&size=500");
+            var response = request.GetResponse();
+            using (Stream dataStream = response.GetResponseStream())
+            {
+                var reader = new StreamReader(dataStream);
+                var responseFromServer = reader.ReadToEnd();
+                JObject orderBookObject = JsonConvert.DeserializeObject<JObject>(responseFromServer);
+                return orderBookObject;
+            }
         }
 
         public List<string> getMarkets()

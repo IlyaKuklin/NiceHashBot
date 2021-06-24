@@ -25,6 +25,7 @@ namespace NHB3
         bool botRunning = false;
         JArray orders;
         JArray market;
+        List<string> marketNames;
 
         System.Threading.Timer timer;
 
@@ -33,10 +34,14 @@ namespace NHB3
             InitializeComponent();
             ac = new ApiConnect();
 
+            
+
             ApiSettings saved = ac.readSettings();
 
             if (saved.OrganizationID != null) {
                 ac.setup(saved);
+
+                //clearOrders();
 
                 if (saved.Enviorment == 1) {
                     currency = "BTC";
@@ -46,16 +51,19 @@ namespace NHB3
                 refreshOrders(false);
                 ac.getPools(true);
 
+                marketNames = ac.getMarkets();
+
                 timer = new System.Threading.Timer(
                     e => runBot(),
                     null,
                     TimeSpan.Zero,
-                    TimeSpan.FromSeconds(60));
+                    TimeSpan.FromSeconds(5000));
             }
         }
 
         public Dictionary<string, float> TotalSpeedByMarket { get; set; } = new Dictionary<string, float>();
         public Dictionary<string, float> MinLimitByAlgoritm { get; set; } = new Dictionary<string, float>();
+        public Dictionary<string, float> DownStepByAlgoritm { get; set; } = new Dictionary<string, float>();
 
         private void api_Click(object sender, EventArgs e)
         {
@@ -205,7 +213,7 @@ namespace NHB3
 			Console.ForegroundColor = ConsoleColor.White;
 			Console.WriteLine("orders to process: {0}", orders.Count);
 
-			var marketNames = ac.getMarkets();
+			
 			JArray jAlgorithms = ac.algorithms;
 
 			var myOrders = getMyOrders();
@@ -214,6 +222,8 @@ namespace NHB3
             var myOrderIds = myOrders.Select(x => x.Id).ToList();
 			var allBookOrders = getAllOrders(marketNames, jAlgorithms, myAlgorithmNames, myMarketNames).Where(x => !myOrderIds.Contains(x.Id)).ToList();
 			var jsonPrice = getJsonPrice();
+
+            //var jsonPrice = 1.500f;
 
             var processedCombinations = new List<string>();
 
@@ -224,9 +234,9 @@ namespace NHB3
 
                 if (myOrder.Price > jsonPrice && myOrder.Limit > minLimit)
 				{
-                    ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, myOrder.Price.ToString(new CultureInfo("en-US")), "0.01");
-                }
-                else
+					slowDownOrder(myOrder);
+				}
+				else
 				{
                     if (processedCombinations.Contains(combinationKey)) continue;
 
@@ -243,8 +253,21 @@ namespace NHB3
                         currentLimit += targetOrder.Limit;
                         if (targetOrder.Limit == 0 || currentLimit >= totalLimit)
                         {
-                            ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, (myOrder.Price += 0.0001f).ToString(new CultureInfo("en-US")), myOrder.Limit.ToString(new CultureInfo("en-US")));
-                            processedCombinations.Add(combinationKey);
+                            var tp = (float)Math.Round(targetOrder.Price + 0.0001f, 4);
+                            var existingCorrectOrder = myOrders.FirstOrDefault(x => x.Price == tp && x.Limit > this.MinLimitByAlgoritm[myOrder.AlgorithmName]);
+                            if (existingCorrectOrder != null) break;
+
+                            if (myOrder.Price <= targetOrder.Price)
+							{
+                                ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, (targetOrder.Price += 0.0001f).ToString(new CultureInfo("en-US")), (myOrder.Limit + 0.01f).ToString(new CultureInfo("en-US")));
+                                processedCombinations.Add(combinationKey);
+                            }
+                            else if (myOrder.Price > targetOrder.Price)
+                            {
+                                slowDownOrder(myOrder);
+                                break;
+                            }
+
                             break;
                         }
                     }
@@ -254,10 +277,20 @@ namespace NHB3
             toolStripStatusLabel1.Text = "Idle";
 		}
 
+		private void slowDownOrder(MyOrder myOrder)
+		{
+			var decreasedPrice = myOrder.Price + this.DownStepByAlgoritm[myOrder.AlgorithmName];
+            // Понизить limit.
+			ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, myOrder.Price.ToString(new CultureInfo("en-US")), "0.01");
+            // Понизить price.
+		    ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, decreasedPrice.ToString(new CultureInfo("en-US")), "0.01");
+        }
+
 		private List<Orders> getAllOrders(List<string> marketNames, JArray jAlgorithms, List<string> myAlgorithmNames, List<string> myMarketNames)
         {
             List<Orders> allBookOrders = new List<Orders>();
             this.MinLimitByAlgoritm.Clear();
+            this.DownStepByAlgoritm.Clear();
 
             foreach (var jAlgorithm in jAlgorithms)
 			{
@@ -267,7 +300,12 @@ namespace NHB3
                 var minSpeedLimit = (float)Math.Round(Convert.ToDouble(jAlgorithm["minSpeedLimit"].ToString()), 4);
                 this.MinLimitByAlgoritm.Add(algorithmName, minSpeedLimit);
 
-                var jOrders = ac.getOrderBook(algorithmName, false);
+                var priceDownStep = (float)Math.Round(Convert.ToDouble(jAlgorithm["priceDownStep"].ToString()), 4);
+                this.DownStepByAlgoritm.Add(algorithmName, priceDownStep);
+
+                var jOrders = ac.getOrderBookTest(algorithmName);
+
+                //var jOrders = ac.getOrderBook(algorithmName);
 				var jStats = jOrders["stats"];
 
 				foreach (var marketName in marketNames)
@@ -303,7 +341,7 @@ namespace NHB3
                 myOrder.AlgorithmName = jOrder["algorithm"]["algorithm"].ToString();
                 myOrders.Add(myOrder);
             }
-            return myOrders;
+            return myOrders.OrderByDescending(x => x.Price).ToList();
         }
 
         private static float getJsonPrice()
@@ -346,5 +384,14 @@ namespace NHB3
             }
             return prices;
         }
+
+        private void clearOrders()
+		{
+            var orders = ac.getOrders();
+			foreach (var order in orders)
+			{
+                ac.cancelOrder(order["id"].ToString());
+			}
+		}
     }
 }
