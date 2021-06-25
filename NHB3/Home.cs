@@ -80,7 +80,7 @@ namespace NHB3
 				Console.WriteLine($"Настройки загружены. Бот {botId} запущен.\b");
 				Console.WriteLine("\n***");
 				Console.WriteLine(
-					$"runBotDelay:\t {botSettings.runBotDelay}\n" +
+					$"runBotDelay: {botSettings.runBotDelay}\n" +
 					$"maxLimitSpeed: {botSettings.maxLimitSpeed}\n" +
 					$"jsonSettingsUrl: {botSettings.jsonSettingsUrl}\n" +
 					$"minStepsCountToFindOrder: {botSettings.minStepsCountToFindOrder}\n" +
@@ -455,8 +455,6 @@ namespace NHB3
 
 		private static BookOrder getTargetBookOrderInAlgoAndMarket(string algoKey, float totalLimit, List<BookOrder> targetBookOrders, ref float currentLimit)
 		{
-			throw new Exception("test ss");
-
 			BookOrder targetOrder = null;
 			foreach (var targetBookOrder in targetBookOrders)
 			{
