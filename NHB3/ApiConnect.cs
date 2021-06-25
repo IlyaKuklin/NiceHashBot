@@ -234,7 +234,7 @@ namespace NHB3
             return orderBookObject;
         }
 
-        public JObject getOrderBookTest(string algo)
+        public JObject getOrderBookWebRequest(string algo)
 		{
             var request = WebRequest.Create($"https://api2.nicehash.com/main/api/v2/hashpower/orderBook?algorithm={algo}&size=500");
             var response = request.GetResponse();

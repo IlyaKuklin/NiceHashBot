@@ -210,6 +210,7 @@ namespace NHB3
                 return;
             }
 
+
             toolStripStatusLabel1.Text = "Working";
 
             BotSettings botSettings = JsonConvert.DeserializeObject<BotSettings>(File.ReadAllText(@fileName));
@@ -327,9 +328,8 @@ namespace NHB3
                 var priceDownStep = (float)Math.Round(Convert.ToDouble(jAlgorithm["priceDownStep"].ToString(), new CultureInfo("en-US")), 4);
                 this.DownStepByAlgoritm.Add(algorithmName, priceDownStep);
 
-                var jOrders = ac.getOrderBookTest(algorithmName);
+                var jOrders = ac.getOrderBookWebRequest(algorithmName);
 
-                //var jOrders = ac.getOrderBook(algorithmName);
 				var jStats = jOrders["stats"];
 
 				foreach (var marketName in marketNames)
