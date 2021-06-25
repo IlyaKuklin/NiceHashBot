@@ -106,5 +106,9 @@ namespace NHB3
 
         // Объём refill.
         public float refillOrderAmount { get; set; }
+
+        public string tgBotToken { get; set; }
+
+        public string tgChatId { get; set; }
 	}
 }

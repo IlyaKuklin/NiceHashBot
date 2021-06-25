@@ -133,7 +133,7 @@ namespace NHB3
             }
 
             var response = client.Execute(request, RestSharp.Method.GET);
-            Console.Out.WriteLine("res: [" + response.Content + "]");
+            //Console.Out.WriteLine("res: [" + response.Content + "]");
 
             if (response.StatusCode != HttpStatusCode.OK) 
             {
@@ -170,7 +170,7 @@ namespace NHB3
 
             var response = client.Execute(request, RestSharp.Method.POST);
             Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.Out.WriteLine("res: [" + response.Content + "]");
+            //Console.Out.WriteLine("res: [" + response.Content + "]");
 
             if (response.StatusCode != HttpStatusCode.OK)
             {
@@ -200,7 +200,7 @@ namespace NHB3
 
             var response = client.Execute(request, RestSharp.Method.DELETE);
             Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.Out.WriteLine("res: [" + response.Content + "]");
+            //Console.Out.WriteLine("res: [" + response.Content + "]");
 
             if (response.StatusCode != HttpStatusCode.OK)
             {
