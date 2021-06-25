@@ -85,8 +85,26 @@ namespace NHB3
 
         public bool increasePrice { get; set; }
 
+
+        /** Актуальные. */
+
+        // Частота запуска логики бота (в секундах).
+        public int runBotDelay { get; set; }
+
+        // Какую скорость устанавливать при перебитии ордера.
 		public float limitIncrease { get; set; }
 
+        // url настроек цены.
         public string jsonSettingsUrl { get; set; }
+
+        public int minStepsCountToFindOrder { get; set; }
+
+        public int runRefillDelay { get; set; }
+
+        // После какого остатка делать refill.
+        public float refillOrderLimit { get; set; }
+
+        // Объём refill.
+        public float refillOrderAmount { get; set; }
 	}
 }
