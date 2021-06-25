@@ -85,7 +85,7 @@ namespace NHB3
                 }
             }
             Console.ForegroundColor = ConsoleColor.DarkGray;
-            Console.Out.WriteLine("req: [" + sb.ToString() + "]");
+            //Console.Out.WriteLine("req: [" + sb.ToString() + "]");
             return sb.ToString();
         }
 

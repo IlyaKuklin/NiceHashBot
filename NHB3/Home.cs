@@ -239,7 +239,7 @@ namespace NHB3
                 var combinationKey = $"{myOrder.AlgorithmName}.{myOrder.MarketName}";
                 var minLimit = this.MinLimitByAlgoritm[myOrder.AlgorithmName];
 
-                if ((myOrder.Price > jsonPrice || (myOrder.Price > targetPrice && targetPrice != 0.0f)) && myOrder.Limit > minLimit)
+                if (myOrder.Price > jsonPrice && myOrder.Limit > minLimit)
 				{
 					slowDownOrder(myOrder);
 				}
@@ -275,8 +275,16 @@ namespace NHB3
 							{
                                 Console.ForegroundColor = ConsoleColor.Yellow;
                                 Console.WriteLine($"Повышаем цену и скорость ордера {myOrder.Id}");
-                                ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, targetPrice.ToString(new CultureInfo("en-US")), (targetOrder.Limit + botSettings.limitIncrease).ToString(new CultureInfo("en-US")));
+                                var newLimit = botSettings.limitIncrease;
+                                ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, targetPrice.ToString(new CultureInfo("en-US")), newLimit.ToString(new CultureInfo("en-US")));
                                 processedCombinations.Add(combinationKey);
+
+                                var lowerOrders = myOrders.Where(x => x.Id != myOrder.Id && x.AlgorithmName == myOrder.AlgorithmName && x.MarketName == myOrder.MarketName && x.Price < targetPrice && x.Price > 0.0001f).ToList();
+								foreach (var lowerOrder in lowerOrders)
+								{
+                                    ac.updateOrder(lowerOrder.AlgorithmName, lowerOrder.Id, lowerOrder.Price.ToString(new CultureInfo("en-US")), newLimit.ToString(new CultureInfo("en-US")));
+                                }
+
                             }
                             else if (myOrder.Price > targetOrder.Price)
                             {
@@ -313,10 +321,10 @@ namespace NHB3
 				var algorithmName = jAlgorithm["algorithm"].ToString();
                 if (!myAlgorithmNames.Contains(algorithmName)) continue;
 
-                var minSpeedLimit = (float)Math.Round(Convert.ToDouble(jAlgorithm["minSpeedLimit"].ToString()), 4);
+                var minSpeedLimit = (float)Math.Round(Convert.ToDouble(jAlgorithm["minSpeedLimit"].ToString(), new CultureInfo("en-US")), 4);
                 this.MinLimitByAlgoritm.Add(algorithmName, minSpeedLimit);
 
-                var priceDownStep = (float)Math.Round(Convert.ToDouble(jAlgorithm["priceDownStep"].ToString()), 4);
+                var priceDownStep = (float)Math.Round(Convert.ToDouble(jAlgorithm["priceDownStep"].ToString(), new CultureInfo("en-US")), 4);
                 this.DownStepByAlgoritm.Add(algorithmName, priceDownStep);
 
                 var jOrders = ac.getOrderBookTest(algorithmName);
@@ -334,7 +342,7 @@ namespace NHB3
                     var key = $"{algorithmName}.{marketName}";
                     if (totalSpeed != null && !this.TotalSpeedByMarket.ContainsKey(key))
                         this.TotalSpeedByMarket.Add(key, 0);
-                    this.TotalSpeedByMarket[key] = (float)Math.Round(Convert.ToDouble(totalSpeed), 4);
+                    this.TotalSpeedByMarket[key] = (float)Math.Round(Convert.ToDouble(totalSpeed, new CultureInfo("en-US")), 4);
 
 					if (jMarketOrders != null)
 					{
@@ -370,7 +378,7 @@ namespace NHB3
                 var reader = new StreamReader(dataStream);
                 var responseFromServer = reader.ReadToEnd();
                 var dynamicJson = JsonConvert.DeserializeObject<dynamic>(responseFromServer);
-                jsonPrice = (float)Math.Round(Convert.ToDouble(dynamicJson.btc_revenue.Value), 4);
+                jsonPrice = (float)Math.Round(Convert.ToDouble(dynamicJson.btc_revenue.Value, new CultureInfo("en-US")), 4);
             }
             return jsonPrice;
         }

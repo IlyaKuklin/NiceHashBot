@@ -60,7 +60,7 @@ namespace NHB3
             if (this.checkBox1.Checked) current.reffilOrder = true;
             if (this.checkBox2.Checked) current.lowerPrice = true;
             if (this.checkBox3.Checked) current.increasePrice = true;
-            if (!string.IsNullOrEmpty(this.newLimitTxtBox.Text)) current.limitIncrease = (float)Math.Round(Convert.ToDouble(this.newLimitTxtBox.Text), 8);
+            if (!string.IsNullOrEmpty(this.newLimitTxtBox.Text)) current.limitIncrease = (float)Math.Round(Convert.ToDouble(this.newLimitTxtBox.Text, new CultureInfo("en-US")), 8);
             current.jsonSettingsUrl = this.jsonSettingsTextBox.Text;
 
             return current;
