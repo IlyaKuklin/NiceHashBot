@@ -36,7 +36,7 @@ namespace NHB3
                 this.checkBox1.Checked = saved.reffilOrder;
                 this.checkBox2.Checked = saved.lowerPrice;
                 this.checkBox3.Checked = saved.increasePrice;
-                this.newLimitTxtBox.Text = saved.limitIncrease.ToString(new CultureInfo("en-US"));
+                this.newLimitTxtBox.Text = saved.maxLimitSpeed.ToString(new CultureInfo("en-US"));
                 this.jsonSettingsTextBox.Text = saved.jsonSettingsUrl;
             }
         }
@@ -60,7 +60,7 @@ namespace NHB3
             if (this.checkBox1.Checked) current.reffilOrder = true;
             if (this.checkBox2.Checked) current.lowerPrice = true;
             if (this.checkBox3.Checked) current.increasePrice = true;
-            if (!string.IsNullOrEmpty(this.newLimitTxtBox.Text)) current.limitIncrease = (float)Math.Round(Convert.ToDouble(this.newLimitTxtBox.Text, new CultureInfo("en-US")), 8);
+            if (!string.IsNullOrEmpty(this.newLimitTxtBox.Text)) current.maxLimitSpeed = (float)Math.Round(Convert.ToDouble(this.newLimitTxtBox.Text, new CultureInfo("en-US")), 8);
             current.jsonSettingsUrl = this.jsonSettingsTextBox.Text;
 
             return current;
@@ -92,7 +92,7 @@ namespace NHB3
         public int runBotDelay { get; set; }
 
         // Какую скорость устанавливать при перебитии ордера.
-		public float limitIncrease { get; set; }
+		public float maxLimitSpeed { get; set; }
 
         // url настроек цены.
         public string jsonSettingsUrl { get; set; }

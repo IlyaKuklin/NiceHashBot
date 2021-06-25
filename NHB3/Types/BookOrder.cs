@@ -11,7 +11,7 @@
 		public int RigsCount { get; set; }
 	}
 
-	public class Orders : OrderBase
+	public class BookOrder : OrderBase
 	{
 		public string Type { get; set; }
 		public float AcceptedSpeed { get; set; }

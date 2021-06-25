@@ -110,9 +110,15 @@ namespace NHB3
             string limit = "" + this.tbLimit.Text;
             string market = "EU";
             if (this.rbUSA.Checked)
-            {
                 market = "USA";
-            }
+            else if (this.rbEUN.Checked)
+                market = "EU_N";
+            else if (this.rbUSAE.Checked)
+                market = "USA_E";
+            else if (this.rbASIA.Checked)
+                market = "ASIA";
+            else if (this.rbSA.Checked)
+                market = "SA";
 
             if (this.rbFixed.Checked)
             {
@@ -138,9 +144,17 @@ namespace NHB3
             string algo = "" + this.comboAlgorithm.SelectedItem;
             string market = "EU";
             if (this.rbUSA.Checked)
-            {
                 market = "USA";
-            }
+            else if (this.rbEUN.Checked)
+                market = "EU_N";
+            else if (this.rbUSAE.Checked)
+                market = "USA_E";
+            else if (this.rbASIA.Checked)
+                market = "ASIA";
+            else if (this.rbSA.Checked)
+                market = "SA";
+
+
             string type = "STANDARD";
             if (this.rbFixed.Checked)
             {
@@ -180,6 +194,10 @@ namespace NHB3
             this.comboPools.Enabled = false;
             this.rbEU.Enabled = false;
             this.rbUSA.Enabled = false;
+            this.rbEUN.Enabled = false;
+            this.rbUSAE.Enabled = false;
+            this.rbASIA.Enabled = false;
+            this.rbSA.Enabled = false;
             this.rbStd.Enabled = false;
             this.rbFixed.Enabled = false;
             this.tbPrice.Enabled = false;
@@ -202,15 +220,60 @@ namespace NHB3
             //set values
             this.tbId.Text = "" + order["id"];
             this.comboAlgorithm.SelectedItem = order["algorithm"]["algorithm"];
+
             if (("" + order["market"]).Equals("EU"))
             {
                 this.rbEU.Checked = true;
                 this.rbUSA.Checked = false;
+                this.rbEUN.Checked = false;
+                this.rbUSAE.Checked = false;
+                this.rbASIA.Checked = false;
+                this.rbSA.Checked = false;
             }
-            else
+            else if (("" + order["market"]).Equals("USA"))
             {
                 this.rbEU.Checked = false;
                 this.rbUSA.Checked = true;
+                this.rbEUN.Checked = false;
+                this.rbUSAE.Checked = false;
+                this.rbASIA.Checked = false;
+                this.rbSA.Checked = false;
+            }
+            else if (("" + order["market"]).Equals("EU_N"))
+            {
+                this.rbEU.Checked = false;
+                this.rbUSA.Checked = false;
+                this.rbEUN.Checked = true;
+                this.rbUSAE.Checked = false;
+                this.rbASIA.Checked = false;
+                this.rbSA.Checked = false;
+            }
+            else if (("" + order["market"]).Equals("USA_E"))
+            {
+                this.rbEU.Checked = false;
+                this.rbUSA.Checked = false;
+                this.rbEUN.Checked = false;
+                this.rbUSAE.Checked = true;
+                this.rbASIA.Checked = false;
+                this.rbSA.Checked = false;
+            }
+            else if (("" + order["market"]).Equals("ASIA"))
+            {
+                this.rbEU.Checked = false;
+                this.rbUSA.Checked = false;
+                this.rbEUN.Checked = false;
+                this.rbUSAE.Checked = false;
+                this.rbASIA.Checked = true;
+                this.rbSA.Checked = false;
+            }
+            else if (("" + order["market"]).Equals("SA"))
+            {
+                this.rbEU.Checked = false;
+                this.rbUSA.Checked = false;
+                this.rbEUN.Checked = false;
+                this.rbUSAE.Checked = false;
+                this.rbASIA.Checked = false;
+                this.rbSA.Checked = true;
             }
 
             if (("" + order["type"]["code"]).Equals("STANDARD"))
