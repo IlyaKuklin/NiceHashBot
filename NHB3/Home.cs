@@ -8,6 +8,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Threading;
 using System.Windows.Forms;
 using static NHB3.ApiConnect;
 
@@ -461,10 +462,19 @@ namespace NHB3
 
 		private void HandleException(Exception ex)
 		{
-			var message = $"Ошибка в боте с ID ({botId}).\n\nТекст ошибки:\n\n{ex.Message}";
+			var message = $"Ошибка в боте с ID ({botId}).\n\nТекст ошибки:\n\n{ex.Message}\n\nОжидание {botSettings.errorDelay} секунд перед перезапуском";
+
+			Console.ForegroundColor = ConsoleColor.Red;
+			Console.WriteLine(message);
+
 			string urlString = $"https://api.telegram.org/bot{botSettings.tgBotToken}/sendMessage?chat_id={botSettings.tgChatId}&text={message}";
 			WebClient webclient = new WebClient();
 			webclient.DownloadString(urlString);
+
+			Thread.Sleep(TimeSpan.FromSeconds(botSettings.errorDelay));
+
+			Console.ForegroundColor = ConsoleColor.White;
+			Console.WriteLine("Перезапуск бота");
 		}
 	}
 }

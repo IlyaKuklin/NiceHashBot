@@ -110,5 +110,8 @@ namespace NHB3
         public string tgBotToken { get; set; }
 
         public string tgChatId { get; set; }
-	}
+
+        public int errorDelay { get; set; }
+
+    }
 }
