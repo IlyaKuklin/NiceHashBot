@@ -142,7 +142,7 @@ namespace NHB3
             return response.Content;
         }
 
-        public string post(string url, string payload, bool requestId)
+        public string post(string url, string payload, bool requestId, bool debug = false)
         {
             string time = this.srvrTime();
             var client = new RestSharp.RestClient(this.urlRoot);
@@ -169,8 +169,14 @@ namespace NHB3
             }
 
             var response = client.Execute(request, RestSharp.Method.POST);
-            //Console.ForegroundColor = ConsoleColor.DarkGray;
-            //Console.Out.WriteLine("res: [" + response.Content + "]");
+            if (debug)
+            {
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine("!!!Отладка ответа сервера!!!");
+                Console.WriteLine("URL: " + url);
+                Console.Out.WriteLine("[" + response.Content + "]");
+                Console.ForegroundColor = ConsoleColor.White;
+            }
 
             if (response.StatusCode != HttpStatusCode.OK)
             {

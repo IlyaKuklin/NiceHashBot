@@ -113,5 +113,6 @@ namespace NHB3
 
         public int errorDelay { get; set; }
 
-    }
+		public float jsonPrice { get; set; }
+	}
 }

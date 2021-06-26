@@ -25,7 +25,7 @@ namespace NHB3
 
 		private System.Threading.Timer timer;
 
-		private readonly BotSettings botSettings;
+		private BotSettings botSettings;
 
 		private readonly string botId;
 
@@ -292,7 +292,10 @@ namespace NHB3
 			var allBookOrders = getAllOrders(marketNames, jAlgorithms, myAlgorithmNames, myMarketNames).Where(x => !myOrderIds.Contains(x.Id)).ToList();
 			var jsonPrice = getJsonPrice(botSettings.jsonSettingsUrl);
 
-			//jsonPrice = 1.800f;
+			//String fileName = Path.Combine(Directory.GetCurrentDirectory(), "bot.json");
+			//botSettings = JsonConvert.DeserializeObject<BotSettings>(File.ReadAllText(fileName));
+			//if (botSettings.jsonPrice != 0)
+			//	jsonPrice = botSettings.jsonPrice;
 
 			Console.ForegroundColor = ConsoleColor.White;
 			Console.WriteLine($"Цена json: {jsonPrice}");
@@ -359,17 +362,26 @@ namespace NHB3
 								var myNextUpperOrder =
 									myAlgMarketOrders
 									.OrderByDescending(x => x.Price)
-									.FirstOrDefault(x => x.Price >= targetOrder.Price && x.Price < (targetOrder.Price + Math.Abs(this.DownStepByAlgoritm[algoKey]) * botSettings.minStepsCountToFindOrder));
+									.FirstOrDefault(x => x.Id != myMainOrder.Id && x.Price < myMainOrder.Price && x.Price >= targetOrder.Price && x.Price < (targetOrder.Price + Math.Abs(this.DownStepByAlgoritm[algoKey]) * botSettings.minStepsCountToFindOrder));
 
 								if (myNextUpperOrder != null)
 								{
-									Console.WriteLine($"Найден ордер с ценой {myNextUpperOrder.Price}. Устанавливаем новую скорость ({botSettings.maxLimitSpeed})");
-									updateResult = ac.updateOrder(algoKey, myNextUpperOrder.Id, myNextUpperOrder.Price.ToString(new CultureInfo("en-US")), botSettings.maxLimitSpeed.ToString(new CultureInfo("en-US")));
-									if (updateResult.HasValues)
+									Console.WriteLine($"Найден ордер с ценой {myNextUpperOrder.Price}");
+									if (myNextUpperOrder.Limit == botSettings.maxLimitSpeed)
 									{
-										Console.WriteLine($"\t[{algoKey}]\tСкорость ордера повышена");
-										newMainOrder = myNextUpperOrder;
+										Console.WriteLine($"\t[{algoKey}]\tУ ордера уже установлен max limit.");
 									}
+									else
+									{
+										Console.WriteLine($"\t[{algoKey}]\tУстанавливаем новую скорость ({botSettings.maxLimitSpeed})");
+										updateResult = ac.updateOrder(algoKey, myNextUpperOrder.Id, myNextUpperOrder.Price.ToString(new CultureInfo("en-US")), botSettings.maxLimitSpeed.ToString(new CultureInfo("en-US")));
+										if (updateResult.HasValues)
+										{
+											Console.WriteLine($"\t[{algoKey}]\tСкорость ордера повышена");
+										}
+									}
+									newMainOrder = myNextUpperOrder;
+									targetPrice = myNextUpperOrder.Price;
 								}
 								else
 								{
@@ -382,7 +394,7 @@ namespace NHB3
 						else if (myMainOrder.Price == targetPrice)
 						{
 							Console.WriteLine($"\t[{algoKey}]\tГлавный ордер стоит перед конкурирующим. Изменения не требуются.");
-							continue;
+							newMainOrder = myMainOrder;
 						}
 						else
 						{
@@ -422,15 +434,16 @@ namespace NHB3
 
 				myOrders.ForEach(order =>
 				{
-					if (order.AvailableAmount < botSettings.refillOrderLimit)
+					var ok = (order.AvailableAmount - order.PayedAmount) < botSettings.refillOrderLimit;
+					if (ok)
 						ac.refillOrder(order.Id, botSettings.refillOrderAmount.ToString(new CultureInfo("en-US")));
 				});
 				Console.WriteLine("Refill orders end\n");
+				lastRunStamp = currentTimeStamp;
 			}
 
 			toolStripStatusLabel1.Text = "Idle";
 
-			lastRunStamp = currentTimeStamp;
 			iteration++;
 
 			Console.WriteLine("\n***Окончание цикла***\n");
@@ -472,9 +485,9 @@ namespace NHB3
 		{
 			var decreasedPrice = myOrder.Price + this.DownStepByAlgoritm[myOrder.AlgorithmName];
 			// Понизить limit.
-			ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, myOrder.Price.ToString(new CultureInfo("en-US")), "0.01");
+			ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, myOrder.Price.ToString(new CultureInfo("en-US")), this.MinLimitByAlgoritm[myOrder.AlgorithmName].ToString(new CultureInfo("en-US")));
 			// Понизить price.
-			ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, decreasedPrice.ToString(new CultureInfo("en-US")), "0.01");
+			ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, decreasedPrice.ToString(new CultureInfo("en-US")), this.MinLimitByAlgoritm[myOrder.AlgorithmName].ToString(new CultureInfo("en-US")));
 		}
 
 		private List<BookOrder> getAllOrders(List<string> marketNames, JArray jAlgorithms, List<string> myAlgorithmNames, List<string> myMarketNames)
