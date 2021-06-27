@@ -36,8 +36,8 @@ namespace NHB3
                 this.checkBox1.Checked = saved.reffilOrder;
                 this.checkBox2.Checked = saved.lowerPrice;
                 this.checkBox3.Checked = saved.increasePrice;
-                this.newLimitTxtBox.Text = saved.maxLimitSpeed.ToString(new CultureInfo("en-US"));
-                this.jsonSettingsTextBox.Text = saved.jsonSettingsUrl;
+                //this.newLimitTxtBox.Text = saved.maxLimitSpeed.ToString(new CultureInfo("en-US"));
+                this.jsonSettingsTextBox.Text = saved.JsonSettingsUrl;
             }
         }
 
@@ -60,8 +60,8 @@ namespace NHB3
             if (this.checkBox1.Checked) current.reffilOrder = true;
             if (this.checkBox2.Checked) current.lowerPrice = true;
             if (this.checkBox3.Checked) current.increasePrice = true;
-            if (!string.IsNullOrEmpty(this.newLimitTxtBox.Text)) current.maxLimitSpeed = (float)Math.Round(Convert.ToDouble(this.newLimitTxtBox.Text, new CultureInfo("en-US")), 8);
-            current.jsonSettingsUrl = this.jsonSettingsTextBox.Text;
+            //if (!string.IsNullOrEmpty(this.newLimitTxtBox.Text)) current.maxLimitSpeed = (float)Math.Round(Convert.ToDouble(this.newLimitTxtBox.Text, new CultureInfo("en-US")), 8);
+            current.JsonSettingsUrl = this.jsonSettingsTextBox.Text;
 
             return current;
         }
@@ -85,34 +85,40 @@ namespace NHB3
 
         public bool increasePrice { get; set; }
 
-
         /** Актуальные. */
 
         // Частота запуска логики бота (в секундах).
-        public int runBotDelay { get; set; }
-
-        // Какую скорость устанавливать при перебитии ордера.
-		public float maxLimitSpeed { get; set; }
+        public int RunBotDelay { get; set; }
 
         // url настроек цены.
-        public string jsonSettingsUrl { get; set; }
+        public string JsonSettingsUrl { get; set; }
 
-        public int minStepsCountToFindOrder { get; set; }
+        public int MinStepsCountToFindOrder { get; set; }
 
-        public int runRefillDelay { get; set; }
+        public int RunRefillDelay { get; set; }
 
         // После какого остатка делать refill.
-        public float refillOrderLimit { get; set; }
+        public float RefillOrderLimit { get; set; }
 
         // Объём refill.
-        public float refillOrderAmount { get; set; }
+        public float RefillOrderAmount { get; set; }
 
-        public string tgBotToken { get; set; }
+        public string TgBotToken { get; set; }
 
-        public string tgChatId { get; set; }
+        public string TgChatId { get; set; }
 
-        public int errorDelay { get; set; }
+        public int ErrorDelay { get; set; }
 
-		public float jsonPrice { get; set; }
+		public float JsonPrice { get; set; }
+
+        public List<BotMarketSettings> MarketSettings { get; set; }
+    }
+
+    public class BotMarketSettings
+	{
+		public string Name { get; set; }
+
+        // Какую скорость устанавливать при перебитии ордера.
+        public float MaxLimitSpeed { get; set; }
 	}
 }
