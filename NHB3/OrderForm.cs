@@ -332,8 +332,8 @@ namespace NHB3
             string limit = "" + this.tbNewLimit.Text;
             string id = "" + this.tbId.Text;
 
-            JObject order = ac.updateOrder(algo, id, price, limit);
-            if (order["id"] != null)
+            JObject order = ac.updateOrder(algo, id, price, limit)?.Item2;
+            if (order != null && order["id"] != null)
             {
                 this.lblErrorCreate.Visible = false;
                 setEditMode(order);

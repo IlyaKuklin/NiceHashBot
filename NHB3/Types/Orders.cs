@@ -18,7 +18,7 @@
 		public float PayingSpeed { get; set; }
 	}
 
-	public class MyOrder : OrderBase
+	public class Order : OrderBase
 	{
 		public float Amount { get; set; }
 		public float AcceptedCurrentSpeed { get; set; }

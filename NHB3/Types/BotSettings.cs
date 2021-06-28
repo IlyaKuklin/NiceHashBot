@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using Newtonsoft.Json;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace NHB3.Types
 {
@@ -27,7 +29,7 @@ namespace NHB3.Types
 		public string TgChatId { get; set; }
 
 		public int ErrorDelay { get; set; }
-		
+
 		public string ErrorUrlHandler { get; set; }
 
 		public float JsonPrice { get; set; }
@@ -51,6 +53,7 @@ namespace NHB3.Types
 	{
 		public int ProcessedOrdersCount { get; set; }
 		public float PriceStep { get; set; }
+		public float OtherOrdersLimitSettings { get; set; }
 		public List<AllocationLimitSettings> LimitSettings { get; set; }
 	}
 
@@ -58,5 +61,17 @@ namespace NHB3.Types
 	{
 		public string OrdersPositions { get; set; }
 		public float MaxLimitSpeed { get; set; }
+
+		[JsonIgnore]
+		public List<int> OrdersPositionsList
+		{
+			get
+			{
+				var list = new List<int>();
+				var parts = this.OrdersPositions.Split(',');
+				list.AddRange(parts.Select(part => int.Parse(part)));
+				return list;
+			}
+		}
 	}
 }

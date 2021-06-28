@@ -1,5 +1,6 @@
 ﻿using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using NHB3.Types;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -195,7 +196,7 @@ namespace NHB3
             return new JObject();
         }
 
-        public JObject updateOrder(string algo, string id, string price, string limit)
+        public Tuple<Order, JObject> updateOrder(string algo, string id, string price, string limit)
         {
             JObject selAlgo = getAlgo(algo);
             Dictionary<string, string> order = new Dictionary<string, string> {
@@ -205,14 +206,17 @@ namespace NHB3
                 { "marketFactor", (string)selAlgo["marketFactor"] }
             };
 
-            string editOrderResponse = api.post("/main/api/v2/hashpower/order/" + id + "/updatePriceAndLimit", JsonConvert.SerializeObject(order), true);
+            string editOrderResponse = api.post("/main/api/v2/hashpower/order/" + id + "/updatePriceAndLimit", JsonConvert.SerializeObject(order), true, true);
             JObject orderObject = JsonConvert.DeserializeObject<JObject>(editOrderResponse);
 
             if (orderObject["error_id"] == null)
             {
-                return orderObject;
+                var updatedOrder = JsonConvert.DeserializeObject<Order>(editOrderResponse);
+                updatedOrder.MarketName = orderObject["market"].ToString();
+                updatedOrder.AlgorithmName = algo;
+                return new Tuple<Order, JObject>(updatedOrder, orderObject);
             }
-            return new JObject();
+            return null;
         }
 
         public JObject cancelOrder(string id) 

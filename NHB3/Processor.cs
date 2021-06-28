@@ -7,6 +7,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Threading;
 
 namespace NHB3
 {
@@ -98,10 +99,8 @@ namespace NHB3
 				_settingsError = true;
 			}
 
-
 			if (_botSettings.AllocationSettingsOn)
 			{
-
 			}
 		}
 
@@ -159,6 +158,9 @@ namespace NHB3
 			Console.ForegroundColor = ConsoleColor.White;
 			Console.WriteLine($"Цена json: {jsonPrice}");
 
+			// Ордера, которым была установлена цена/скорость, и их обработка больше не требуется.
+			var processedOrderIds = new List<string>();
+
 			var bookOrdersByAlgorithms = allBookOrders.GroupBy(x => x.AlgorithmName).ToDictionary(x => x.Key, x => x.ToList());
 			var myOrdersByAlgorithms = myOrders.GroupBy(x => x.AlgorithmName).ToDictionary(x => x.Key, x => x.ToList()).OrderBy(x => x.Key);
 
@@ -205,10 +207,10 @@ namespace NHB3
 					}
 					Console.WriteLine($"\t[{algoKey}]\tЦена, скорость, id конкурирующего ордера: {targetOrder.Price} | {targetOrder.Limit} | {targetOrder.Id}");
 
-					MyOrder newMainOrder = null;
+					Order newMainOrder = null;
 					var targetPrice = (float)Math.Round(targetOrder.Price + 0.0001f, 4);
 					//var myMainOrder = myAlgMarketOrders.OrderByDescending(x => x.Price).FirstOrDefault(x => x.Price < jsonPrice && x.Price > 0.0001f);
-					var myMainOrder = myAlgMarketOrders.OrderByDescending(x => x.Price).FirstOrDefault(x => x.Price > 0.0001f);
+					var myMainOrder = myAlgMarketOrders.OrderByDescending(x => x.Price).FirstOrDefault(x => x.Price < jsonPrice && x.Price > 0.0001f);
 
 					if (myMainOrder != null)
 					{
@@ -217,15 +219,19 @@ namespace NHB3
 						{
 							Console.WriteLine($"\t[{algoKey}]\tЦена самого дорогого ордера выше цены конкурирующего. Попытка снизить цену.");
 							// Пытаемся снизить цену.
-							var slowDonwResult = SlowDownOrder(myMainOrder, targetPrice - this.DownStepByAlgoritm[myMainOrder.AlgorithmName], false);
-							if (slowDonwResult == SlowDownResult.Ok)
+							//var slowDonwResult = SlowDownOrder(myMainOrder, targetPrice - this.DownStepByAlgoritm[myMainOrder.AlgorithmName], false);
+							var updated = this.SetPrice(myMainOrder, targetPrice);
+							if (updated != null)
 							{
 								Console.WriteLine($"\t[{algoKey}]\tЦена ордера установлена на {targetPrice}");
-								newMainOrder = myMainOrder;
+								newMainOrder = updated;
+								//newMainOrder.Price = updated.Price;
 							}
 							// Не получилось снизить цену.
 							else
 							{
+								processedOrderIds.Add(myMainOrder.Id);
+
 								Console.WriteLine($"\t[{algoKey}]\tСнижение цены не удалось, поиск ближайшего ордера в пределах {_botSettings.MinStepsCountToFindOrder} минимальных шагов по отношению к цене {targetPrice}");
 
 								var myNextUpperOrder =
@@ -243,8 +249,8 @@ namespace NHB3
 									else
 									{
 										Console.WriteLine($"\t[{algoKey}]\tУстанавливаем новую скорость ({currentMarketSettings.MaxLimitSpeed})");
-										var updateResult = _ac.updateOrder(algoKey, myNextUpperOrder.Id, myNextUpperOrder.Price.ToString(new CultureInfo("en-US")), currentMarketSettings.MaxLimitSpeed.ToString(new CultureInfo("en-US")));
-										if (updateResult.HasValues)
+										myNextUpperOrder = _ac.updateOrder(algoKey, myNextUpperOrder.Id, myNextUpperOrder.Price.ToString(new CultureInfo("en-US")), currentMarketSettings.MaxLimitSpeed.ToString(new CultureInfo("en-US")))?.Item1;
+										if (myNextUpperOrder != null)
 										{
 											Console.WriteLine($"\t[{algoKey}]\tСкорость ордера повышена");
 										}
@@ -268,7 +274,7 @@ namespace NHB3
 						else
 						{
 							Console.WriteLine($"\t[{algoKey}]\tЦена главного ордера ниже цены конкурирующего. Повышение цены.");
-							_ac.updateOrder(algoKey, myMainOrder.Id, targetPrice.ToString(new CultureInfo("en-US")), currentMarketSettings.MaxLimitSpeed.ToString(new CultureInfo("en-US")));
+							myMainOrder = _ac.updateOrder(algoKey, myMainOrder.Id, targetPrice.ToString(new CultureInfo("en-US")), currentMarketSettings.MaxLimitSpeed.ToString(new CultureInfo("en-US"))).Item1;
 							Console.WriteLine($"\t[{algoKey}]\tСкорость ордера повышена до {targetPrice}");
 							newMainOrder = myMainOrder;
 						}
@@ -280,44 +286,51 @@ namespace NHB3
 					{
 						WarnConsole($"\t[{algoKey}]\tНе найден подходящий ордер с ценой ниже цены JSON. Понижение скорости всем ордерам с ценой выше {targetPrice}");
 						var uppers = myAlgMarketOrders.Where(x => x.Price > targetPrice).ToList();
-						uppers.ForEach(x => SlowDownOrder(x, x.Price));
+						//uppers.ForEach(x => SlowDownOrder(x, x.Price));
+						uppers.ForEach(x => SetLimit(x, this.MinLimitByAlgoritm[x.AlgorithmName]));
 						continue;
 					}
 
 					Console.WriteLine($"\t[{algoKey}]\tНаш текущий главный ордер имеет Id {newMainOrder.Id}");
+					processedOrderIds.Add(newMainOrder.Id);
 
-					var lowerOrders = myAlgMarketOrders.Where(x => x.Id != newMainOrder.Id && x.Price < targetPrice && x.Price > 0.0001f).ToList();
+					this.FormOrdersGroup(myOrders, processedOrderIds, algoKey, currentMarketSettings, newMainOrder);
+
+					var lowerOrders = myAlgMarketOrders.Where(x => !processedOrderIds.Contains(x.Id) && x.Price < targetPrice && x.Price > 0.0001f).ToList();
 					Console.WriteLine($"\t[{algoKey}]\tУстанавливаем max limit и понижаем цену активным ордерам ниже главного ({lowerOrders.Count} шт)");
 					lowerOrders.ForEach(order =>
 					{
-						if (order.Limit < currentMarketSettings.MaxLimitSpeed)
-							_ac.updateOrder(order.AlgorithmName, order.Id, order.Price.ToString(new CultureInfo("en-US")), currentMarketSettings.MaxLimitSpeed.ToString(new CultureInfo("en-US")));
-						SlowDownOrder(order, order.Price, false);
+						var updated = order;
+
+						if (!_botSettings.AllocationSettingsOn)
+						{
+							if (order.Limit < currentMarketSettings.MaxLimitSpeed)
+								updated = this.SetLimit(order, currentMarketSettings.MaxLimitSpeed);
+							this.SetPrice(updated, updated.Price + this.DownStepByAlgoritm[updated.AlgorithmName]);
+						}
+						else
+						{
+							var allocationSettings = currentMarketSettings.AllocationSettings;
+							if (order.Limit != allocationSettings.OtherOrdersLimitSettings)
+								updated = this.SetLimit(order, allocationSettings.OtherOrdersLimitSettings);
+							this.SetPrice(updated, updated.Price + this.DownStepByAlgoritm[updated.AlgorithmName]);
+
+						}
 					});
 
-					var upperOrders = myAlgMarketOrders.Where(x => x.Id != newMainOrder.Id && x.Price > targetPrice).ToList();
+					var upperOrders = myAlgMarketOrders.Where(x => !processedOrderIds.Contains(x.Id) && x.Price > targetPrice).ToList();
 					Console.WriteLine($"\t[{algoKey}]\tПонижаем limit и speed активным ордерам выше главного ({upperOrders.Count} шт)");
 					upperOrders.ForEach(order =>
 					{
-						SlowDownOrder(order, order.Price);
+						var updated = order;
+						if (order.Limit != this.MinLimitByAlgoritm[order.AlgorithmName])
+							updated = this.SetLimit(order, this.MinLimitByAlgoritm[order.AlgorithmName]);
+						this.SetPrice(updated, updated.Price + this.DownStepByAlgoritm[updated.AlgorithmName]);
 					});
 				}
 			}
 
-			var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
-			if (_iteration > 1 && (currentTimeStamp - lastRunStamp) >= _botSettings.RunRefillDelay)
-			{
-				Console.WriteLine("\nRefill orders start");
-
-				myOrders.ForEach(order =>
-				{
-					var ok = (order.AvailableAmount - order.PayedAmount) < _botSettings.RefillOrderLimit;
-					if (ok)
-						_ac.refillOrder(order.Id, _botSettings.RefillOrderAmount.ToString(new CultureInfo("en-US")));
-				});
-				Console.WriteLine("Refill orders end\n");
-				lastRunStamp = currentTimeStamp;
-			}
+			this.RunRefillLogic(myOrders);
 
 			_iteration++;
 
@@ -328,14 +341,16 @@ namespace NHB3
 			_cycleIsActive = false;
 		}
 
-		private MyOrder GetNextFreeOrder(string algoKey, BookOrder targetOrder, List<MyOrder> myAlgMarketOrders, float targetPrice, float maxLimitSpeed)
+
+
+		private Order GetNextFreeOrder(string algoKey, BookOrder targetOrder, List<Order> myAlgMarketOrders, float targetPrice, float maxLimitSpeed)
 		{
 			Console.WriteLine($"\t[{algoKey}]\tПоиск ближайшего ордера снизу от конкурирующего");
 			var myNextOrder = myAlgMarketOrders.FirstOrDefault(x => x.Price < targetOrder.Price);
 			if (myNextOrder != null)
 			{
 				Console.WriteLine($"\t[{algoKey}]\tНайден ордер {myNextOrder.Id}. Устанавливаем цену {targetPrice} и скорость {maxLimitSpeed}");
-				_ac.updateOrder(algoKey, myNextOrder.Id, targetPrice.ToString(new CultureInfo("en-US")), maxLimitSpeed.ToString(new CultureInfo("en-US")));
+				myNextOrder = _ac.updateOrder(algoKey, myNextOrder.Id, targetPrice.ToString(new CultureInfo("en-US")), maxLimitSpeed.ToString(new CultureInfo("en-US"))).Item1;
 				return myNextOrder;
 			}
 			else
@@ -360,17 +375,61 @@ namespace NHB3
 			return targetOrder;
 		}
 
-		private SlowDownResult SlowDownOrder(MyOrder myOrder, float price, bool slowDownLimit = true)
+		private Order UpdateOrder(Order order, float price, float limit)
 		{
+			var updated = _ac.updateOrder(order.AlgorithmName, order.Id, price.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
+			return updated;
+		}
+
+		private Order SetLimit(Order order, float limit = 0)
+		{
+			if (limit == 0)
+				limit = this.MinLimitByAlgoritm[order.AlgorithmName];
+			order = _ac.updateOrder(order.AlgorithmName, order.Id, order.Price.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
+			return order;
+		}
+
+		private Order SetPrice(Order order, float price)
+		{
+			var id = order.Id;
+			if (price < order.Price)
+			{
+				var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
+				var metadata = this.OrdersMetadataList.FirstOrDefault(x => x.Id == id);
+				if (metadata == null)
+				{
+					metadata = new MyOrderMetadata { Id = order.Id, LastPriceDecreasedTime = 0 };
+					this.OrdersMetadataList.Add(metadata);
+				}
+				var difference = currentTimeStamp - metadata.LastPriceDecreasedTime;
+				if (difference > 600)
+				{
+					order = _ac.updateOrder(order.AlgorithmName, order.Id, price.ToString(new CultureInfo("en-US")), order.Limit.ToString(new CultureInfo("en-US")))?.Item1;
+					if (order != null)
+					{
+						metadata.LastPriceDecreasedTime = currentTimeStamp;
+					}
+					return order;
+				}
+				else
+					return null;
+			}
+
+			order = _ac.updateOrder(order.AlgorithmName, order.Id, price.ToString(new CultureInfo("en-US")), order.Limit.ToString(new CultureInfo("en-US")))?.Item1;
+			return order;
+		}
+
+		private SlowDownResult SlowDownOrder(Order myOrder, float price, bool slowDownLimit = true)
+		{
+			// Понизить limit.
+			if (slowDownLimit && myOrder.Limit > this.MinLimitByAlgoritm[myOrder.AlgorithmName])
+				this.SetLimit(myOrder);
+
 			var result = SlowDownResult.Undefined;
 
 			var decreasedPrice = price + this.DownStepByAlgoritm[myOrder.AlgorithmName];
 			if (price <= 0)
 				throw new ApplicationException("Ошибка понижения цены");
-
-			// Понизить limit.
-			if (slowDownLimit && myOrder.Limit > this.MinLimitByAlgoritm[myOrder.AlgorithmName])
-				_ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, myOrder.Price.ToString(new CultureInfo("en-US")), this.MinLimitByAlgoritm[myOrder.AlgorithmName].ToString(new CultureInfo("en-US")));
 
 			var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
 
@@ -389,8 +448,8 @@ namespace NHB3
 				var limit = slowDownLimit ? this.MinLimitByAlgoritm[myOrder.AlgorithmName] : myOrder.Limit;
 
 				// Понизить price.
-				var updateResult = _ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, decreasedPrice.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")));
-				if (updateResult.HasValues)
+				myOrder = _ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, decreasedPrice.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
+				if (myOrder != null)
 				{
 					metadata.LastPriceDecreasedTime = currentTimeStamp;
 					result = SlowDownResult.Ok;
@@ -440,12 +499,12 @@ namespace NHB3
 			return allBookOrders.Where(x => x.Alive).ToList();
 		}
 
-		private List<MyOrder> GetMyOrders()
+		private List<Order> GetMyOrders()
 		{
-			var myOrders = new List<MyOrder>();
+			var myOrders = new List<Order>();
 			foreach (var jOrder in _orders)
 			{
-				var myOrder = JsonConvert.DeserializeObject<MyOrder>(jOrder.ToString());
+				var myOrder = JsonConvert.DeserializeObject<Order>(jOrder.ToString());
 				myOrder.MarketName = jOrder["market"].ToString();
 				myOrder.AlgorithmName = jOrder["algorithm"]["algorithm"].ToString();
 				myOrders.Add(myOrder);
@@ -490,6 +549,126 @@ namespace NHB3
 				Console.ForegroundColor = ConsoleColor.DarkRed;
 			Console.WriteLine(message);
 			Console.ForegroundColor = ConsoleColor.White;
+		}
+
+		private void RunRefillLogic(List<Order> myOrders)
+		{
+			var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
+			if (_iteration > 1 && (currentTimeStamp - lastRunStamp) >= _botSettings.RunRefillDelay)
+			{
+				Console.WriteLine("\nRefill orders start");
+
+				myOrders.ForEach(order =>
+				{
+					var ok = (order.AvailableAmount - order.PayedAmount) < _botSettings.RefillOrderLimit;
+					if (ok)
+						_ac.refillOrder(order.Id, _botSettings.RefillOrderAmount.ToString(new CultureInfo("en-US")));
+				});
+				Console.WriteLine("Refill orders end\n");
+				lastRunStamp = currentTimeStamp;
+			}
+		}
+
+		private void FormOrdersGroup(List<Order> orders, List<string> processedOrderIds, string algoKey, BotMarketSettings currentMarketSettings, Order mainOrder)
+		{
+			if (_botSettings.AllocationSettingsOn)
+			{
+				var targetPrice = mainOrder.Price;
+				orders = orders.Where(x => x.Id != mainOrder.Id).ToList();
+
+				Console.ForegroundColor = ConsoleColor.Cyan;
+				Console.WriteLine();
+				Console.WriteLine($"\t[{algoKey}]\t***");
+				Console.WriteLine($"\t[{algoKey}]\tФормирование группы ордеров после главного ордера");
+				Console.ForegroundColor = ConsoleColor.White;
+
+				var groupOrders = new List<Order>();
+
+				var allocationSettings = currentMarketSettings.AllocationSettings;
+				var minAllowedPrice = this.NormalizeFloat(targetPrice - (allocationSettings.ProcessedOrdersCount * allocationSettings.PriceStep));
+
+				Console.WriteLine($"\t[{algoKey}]\tЦена главного ордера: {targetPrice}. Минимально допустимая цена группы: {minAllowedPrice}");
+
+				var ordersBetween = orders.Where(x => x.Price < targetPrice && x.Price >= minAllowedPrice).OrderByDescending(x => x.Price).ToList();
+
+				Console.WriteLine($"\t[{algoKey}]\tКоличество ордеров в диапазоне: {ordersBetween.Count}");
+
+				var targetPosition = 1;
+				var previousOrderPrice = targetPrice;
+				foreach (var order in ordersBetween)
+				{
+					var limitSetting = allocationSettings.LimitSettings.FirstOrDefault(x => x.OrdersPositionsList.Contains(targetPosition));
+
+					var updated = order;
+
+					var delta = previousOrderPrice - order.Price;
+					if (delta > allocationSettings.PriceStep)
+					{
+						var newPrice = previousOrderPrice - allocationSettings.PriceStep;
+						var newLimit = order.Limit != limitSetting.MaxLimitSpeed ? limitSetting.MaxLimitSpeed : order.Limit;
+						updated = this.UpdateOrder(order, newPrice, newLimit);
+					}
+
+					else if (delta <= 0.002f)
+					{
+						var previousOrder = groupOrders.LastOrDefault();
+						if (previousOrder != null)
+						{
+							Thread.Sleep(2500);
+							this.SetPrice(previousOrder, previousOrder.Price + 0.002f);
+						}
+						// todo change price
+					}
+
+					groupOrders.Add(updated);
+					targetPosition = groupOrders.Count + 1;
+					previousOrderPrice = updated.Price;
+
+					if (updated.Limit != limitSetting.MaxLimitSpeed)
+						this.SetLimit(order, limitSetting.MaxLimitSpeed);
+
+					if (groupOrders.Count == allocationSettings.ProcessedOrdersCount) break;
+				}
+
+				groupOrders = groupOrders.Take(allocationSettings.ProcessedOrdersCount).ToList();
+
+				if (groupOrders.Count < allocationSettings.ProcessedOrdersCount)
+				{
+					previousOrderPrice = groupOrders.Any() ? groupOrders.Last().Price : targetPrice;
+
+					var lowerOrders = orders.Where(x => x.Price < previousOrderPrice && !processedOrderIds.Contains(x.Id)).ToList();
+
+					foreach (var lowerOrder in lowerOrders)
+					{
+						targetPosition = groupOrders.Count + 1;
+						var groupOrderTargetPrice = this.NormalizeFloat(previousOrderPrice - allocationSettings.PriceStep);
+						var limitSetting = allocationSettings.LimitSettings.FirstOrDefault(x => x.OrdersPositionsList.Contains(targetPosition));
+
+						var newPrice = groupOrderTargetPrice;
+						var newLimit = lowerOrder.Limit != limitSetting.MaxLimitSpeed ? limitSetting.MaxLimitSpeed : lowerOrder.Limit;
+						var updated = this.UpdateOrder(lowerOrder, newPrice, newLimit);
+						if (updated != null)
+						{
+							groupOrders.Add(updated);
+							previousOrderPrice = groupOrderTargetPrice;
+
+						}
+
+						if (groupOrders.Count == allocationSettings.ProcessedOrdersCount) break;
+					}
+				}
+
+				processedOrderIds.AddRange(groupOrders.Select(x => x.Id));
+
+				Console.ForegroundColor = ConsoleColor.Cyan;
+				Console.WriteLine($"\t[{algoKey}]\tФормирование группы ордеров после главного ордера завершено\n");
+				Console.ForegroundColor = ConsoleColor.White;
+			}
+		}
+
+		private float NormalizeFloat(float value, int decimals = 4)
+		{
+			return (float)Math.Round(Convert.ToDouble(value, new CultureInfo("en-US")), decimals);
 		}
 	}
 
