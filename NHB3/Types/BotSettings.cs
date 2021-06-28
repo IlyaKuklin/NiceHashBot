@@ -27,10 +27,14 @@ namespace NHB3.Types
 		public string TgChatId { get; set; }
 
 		public int ErrorDelay { get; set; }
+		
+		public string ErrorUrlHandler { get; set; }
 
 		public float JsonPrice { get; set; }
 
 		public List<BotMarketSettings> MarketSettings { get; set; }
+
+		public bool AllocationSettingsOn { get; set; }
 	}
 
 	public class BotMarketSettings
@@ -38,6 +42,21 @@ namespace NHB3.Types
 		public string Name { get; set; }
 
 		// Какую скорость устанавливать при перебитии ордера.
+		public float MaxLimitSpeed { get; set; }
+
+		public AllocationSettings AllocationSettings { get; set; }
+	}
+
+	public class AllocationSettings
+	{
+		public int ProcessedOrdersCount { get; set; }
+		public float PriceStep { get; set; }
+		public List<AllocationLimitSettings> LimitSettings { get; set; }
+	}
+
+	public class AllocationLimitSettings
+	{
+		public string OrdersPositions { get; set; }
 		public float MaxLimitSpeed { get; set; }
 	}
 }

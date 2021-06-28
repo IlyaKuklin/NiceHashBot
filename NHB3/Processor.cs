@@ -23,6 +23,8 @@ namespace NHB3
 
 		private readonly string _botId;
 
+		private bool _settingsError;
+
 		public Processor(ApiConnect ac, BotSettings botSettings, JArray orders, string botId)
 		{
 			_ac = ac ?? throw new ArgumentNullException(nameof(ac));
@@ -48,6 +50,9 @@ namespace NHB3
 					cancelledOrderIds.Add(metadata.Id);
 			}
 			this.OrdersMetadataList = this.OrdersMetadataList.Where(x => !cancelledOrderIds.Contains(x.Id)).ToList();
+
+			this.ValidateSettings();
+			if (_settingsError) return;
 
 			Console.WriteLine($"Настройки загружены. Бот {_botId} запущен.\b");
 			Console.WriteLine("\n***");
@@ -75,6 +80,31 @@ namespace NHB3
 			}
 		}
 
+		private void ValidateSettings()
+		{
+			Console.WriteLine("Проверка настроек");
+			if (_botSettings.JsonPrice > 0)
+				WarnConsole("Включено переопределение json цены в настройках. Для выключения установите параметр 'jsonPrice' равным 0");
+
+			if (_botSettings.RunBotDelay == 0)
+			{
+				WarnConsole("Значение runBotDelay не может быть меньше или равно 0", true);
+				_settingsError = true;
+			}
+
+			if (_botSettings.RunRefillDelay == 0)
+			{
+				WarnConsole("Значение runRefillDelay не может быть меньше или равно 0", true);
+				_settingsError = true;
+			}
+
+
+			if (_botSettings.AllocationSettingsOn)
+			{
+
+			}
+		}
+
 		private Dictionary<string, float> TotalSpeedByMarket { get; set; } = new Dictionary<string, float>();
 		private Dictionary<string, float> MinLimitByAlgoritm { get; set; } = new Dictionary<string, float>();
 		private Dictionary<string, float> DownStepByAlgoritm { get; set; } = new Dictionary<string, float>();
@@ -91,6 +121,12 @@ namespace NHB3
 			// START
 			if (!this.BotRunning || this.IsErrorState || _cycleIsActive)
 				return;
+
+			if (_settingsError)
+			{
+				WarnConsole("Ошибка настроек, логика не будет запущена. Исправьте ошибки и перезапустите бот", true);
+				return;
+			}
 
 			Console.ForegroundColor = ConsoleColor.White;
 			Console.WriteLine($"***Начало цикла {_iteration}***\n");
@@ -447,9 +483,11 @@ namespace NHB3
 			}
 		}
 
-		private void WarnConsole(string message)
+		private void WarnConsole(string message, bool critical = false)
 		{
 			Console.ForegroundColor = ConsoleColor.DarkYellow;
+			if (critical)
+				Console.ForegroundColor = ConsoleColor.DarkRed;
 			Console.WriteLine(message);
 			Console.ForegroundColor = ConsoleColor.White;
 		}
