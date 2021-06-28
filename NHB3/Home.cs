@@ -397,12 +397,6 @@ namespace NHB3
 								Console.WriteLine($"\t[{algoKey}]\tЦена ордера установлена на {targetPrice}");
 								newMainOrder = myMainOrder;
 							}
-							//var updateResult = ac.updateOrder(algoKey, myMainOrder.Id, targetPrice.ToString(new CultureInfo("en-US")), currentMarketSettings.MaxLimitSpeed.ToString(new CultureInfo("en-US")));
-							//if (updateResult.HasValues)
-							//{
-							//	Console.WriteLine($"\t[{algoKey}]\tЦена ордера установлена на {targetPrice}");
-							//	newMainOrder = myMainOrder;
-							//}
 							// Не получилось снизить цену.
 							else
 							{
