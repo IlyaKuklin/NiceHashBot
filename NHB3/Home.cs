@@ -65,7 +65,7 @@ namespace NHB3
 					return;
 				
 				_botSettings = JsonConvert.DeserializeObject<BotSettings>(File.ReadAllText(fileName));
-				_processor = new Processor(_ac, _botSettings);
+				_processor = new Processor(_ac, _botSettings, _orders, _botId);
 
 				_timer = new Timer(
 					e =>

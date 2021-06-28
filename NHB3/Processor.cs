@@ -23,11 +23,12 @@ namespace NHB3
 
 		private readonly string _botId;
 
-		public Processor(ApiConnect ac, BotSettings botSettings, JArray orders)
+		public Processor(ApiConnect ac, BotSettings botSettings, JArray orders, string botId)
 		{
 			_ac = ac ?? throw new ArgumentNullException(nameof(ac));
 			_botSettings = botSettings ?? throw new ArgumentNullException(nameof(botSettings));
 			_orders = orders ?? throw new ArgumentNullException(nameof(orders));
+			_botId = botId ?? throw new ArgumentNullException(nameof(botId));
 
 			_marketNames = _ac.getMarkets();
 
@@ -91,15 +92,9 @@ namespace NHB3
 			if (!this.BotRunning || this.IsErrorState || _cycleIsActive)
 				return;
 
-			//toolStripStatusLabel1.Text = "Working";
-
-			Console.CursorSize = 10;
-
 			Console.ForegroundColor = ConsoleColor.White;
 			Console.WriteLine($"***Начало цикла {_iteration}***\n");
 			_cycleIsActive = true;
-
-			//CheckForIllegalCrossThreadCalls = false;
 
 			RefreshOrders();
 
@@ -287,8 +282,6 @@ namespace NHB3
 				Console.WriteLine("Refill orders end\n");
 				lastRunStamp = currentTimeStamp;
 			}
-
-			//toolStripStatusLabel1.Text = "Idle";
 
 			_iteration++;
 

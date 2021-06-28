@@ -4,12 +4,6 @@ namespace NHB3.Types
 {
 	public class BotSettings
 	{
-		//public bool reffilOrder { get; set; }
-
-		//public bool lowerPrice { get; set; }
-
-		//public bool increasePrice { get; set; }
-
 		/** Актуальные. */
 
 		// Частота запуска логики бота (в секундах).
