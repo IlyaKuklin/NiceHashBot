@@ -10,30 +10,24 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Windows.Forms;
-using static NHB3.ApiConnect;
+using Timer = System.Threading.Timer;
 
 namespace NHB3
 {
 	public partial class Home : Form
 	{
-		private ApiConnect ac;
-		private string currency = "TBTC";
-		private bool botRunning = false;
-		private JArray orders;
-		private JArray market;
-		private List<string> marketNames;
-
-		private System.Threading.Timer timer;
-
-		private BotSettings botSettings;
-
-		private readonly string botId;
-
-		private long iteration = 1;
-
-		private bool isErrorState = false;
-
-		private bool cycleIsActive = false;
+		private readonly ApiConnect _ac;
+		private readonly string _currency = "TBTC";
+		private bool _botRunning = false;
+		private JArray _orders;
+		private JArray _market;
+		private readonly List<string> _marketNames;
+		private readonly Timer _timer;
+		private BotSettings _botSettings;
+		private readonly string _botId;
+		private long _iteration = 1;
+		private bool _isErrorState = false;
+		private bool _cycleIsActive = false;
 
 		public Home()
 		{
@@ -41,36 +35,35 @@ namespace NHB3
 
 			var ticks = new DateTime(2016, 1, 1).Ticks;
 			var ans = DateTime.Now.Ticks - ticks;
-			botId = ans.ToString("x");
-			idLabel.Text = botId;
+			_botId = ans.ToString("x");
+			idLabel.Text = _botId;
 
-			ac = new ApiConnect();
+			_ac = new ApiConnect();
 
-			ApiSettings saved = ac.readSettings();
+			var acSettings = _ac.readSettings();
 
-			if (saved.OrganizationID != null)
+			if (acSettings.OrganizationID != null)
 			{
-				ac.setup(saved);
+				_ac.setup(acSettings);
 
 				//clearOrders();
 
-				if (saved.Enviorment == 1)
-				{
-					currency = "BTC";
-				}
-				ac.currency = currency;
+				if (acSettings.Enviorment == 1)
+					_currency = "BTC";
+				_ac.currency = _currency;
+
 				refreshBalance();
 				refreshOrders(false);
-				ac.getPools(true);
+				_ac.getPools(true);
 
-				marketNames = ac.getMarkets();
+				_marketNames = _ac.getMarkets();
 
-				String fileName = Path.Combine(Directory.GetCurrentDirectory(), "bot.json");
+				var fileName = Path.Combine(Directory.GetCurrentDirectory(), "bot.json");
 				if (!File.Exists(fileName))
 					return;
 				try
 				{
-					botSettings = JsonConvert.DeserializeObject<BotSettings>(File.ReadAllText(fileName));
+					_botSettings = JsonConvert.DeserializeObject<BotSettings>(File.ReadAllText(fileName));
 				}
 				catch
 				{
@@ -80,7 +73,8 @@ namespace NHB3
 
 				var metadataFileName = Path.Combine(Directory.GetCurrentDirectory(), "ordersList.json");
 				this.OrdersMetadataList = JsonConvert.DeserializeObject<List<MyOrderMetadata>>(File.ReadAllText(metadataFileName));
-				var myOrders = getMyOrders();
+
+				var myOrders = GetMyOrders();
 				var cancelledOrderIds = new List<string>();
 				foreach (var metadata in this.OrdersMetadataList)
 				{
@@ -89,23 +83,22 @@ namespace NHB3
 				}
 				this.OrdersMetadataList = this.OrdersMetadataList.Where(x => !cancelledOrderIds.Contains(x.Id)).ToList();
 
-
-				Console.WriteLine($"Настройки загружены. Бот {botId} запущен.\b");
+				Console.WriteLine($"Настройки загружены. Бот {_botId} запущен.\b");
 				Console.WriteLine("\n***");
 				Console.WriteLine(
-					$"runBotDelay: {botSettings.RunBotDelay}\n" +
-					$"jsonSettingsUrl: {botSettings.JsonSettingsUrl}\n" +
-					$"minStepsCountToFindOrder: {botSettings.MinStepsCountToFindOrder}\n" +
-					$"runRefillDelay: {botSettings.RunRefillDelay}\n" +
-					$"refillOrderLimit: {botSettings.RefillOrderLimit}\n" +
-					$"refillOrderAmount: {botSettings.RefillOrderAmount}\n" +
-					$"tgBotToken: {botSettings.TgBotToken}\n" +
-					$"tgChatId: {botSettings.TgChatId}\n" +
-					$"errorDelay: {botSettings.ErrorDelay}"
+					$"runBotDelay: {_botSettings.RunBotDelay}\n" +
+					$"jsonSettingsUrl: {_botSettings.JsonSettingsUrl}\n" +
+					$"minStepsCountToFindOrder: {_botSettings.MinStepsCountToFindOrder}\n" +
+					$"runRefillDelay: {_botSettings.RunRefillDelay}\n" +
+					$"refillOrderLimit: {_botSettings.RefillOrderLimit}\n" +
+					$"refillOrderAmount: {_botSettings.RefillOrderAmount}\n" +
+					$"tgBotToken: {_botSettings.TgBotToken}\n" +
+					$"tgChatId: {_botSettings.TgChatId}\n" +
+					$"errorDelay: {_botSettings.ErrorDelay}"
 					);
 				Console.WriteLine("***\n");
 
-				foreach (var jAlgorithm in ac.algorithms)
+				foreach (var jAlgorithm in _ac.algorithms)
 				{
 					var algorithmName = jAlgorithm["algorithm"].ToString();
 					var minSpeedLimit = (float)Math.Round(Convert.ToDouble(jAlgorithm["minSpeedLimit"].ToString(), new CultureInfo("en-US")), 4);
@@ -115,7 +108,7 @@ namespace NHB3
 					this.DownStepByAlgoritm.Add(algorithmName, priceDownStep);
 				}
 
-				timer = new System.Threading.Timer(
+				_timer = new Timer(
 					e =>
 					{
 						try
@@ -129,26 +122,24 @@ namespace NHB3
 					},
 					null,
 					TimeSpan.Zero,
-					TimeSpan.FromSeconds(botSettings.RunBotDelay));
+					TimeSpan.FromSeconds(_botSettings.RunBotDelay));
 			}
 		}
 
 		public Dictionary<string, float> TotalSpeedByMarket { get; set; } = new Dictionary<string, float>();
 		public Dictionary<string, float> MinLimitByAlgoritm { get; set; } = new Dictionary<string, float>();
 		public Dictionary<string, float> DownStepByAlgoritm { get; set; } = new Dictionary<string, float>();
-
-		//public Dictionary<string, long> LastTimeSlowedDownTimestamps { get; set; } = new Dictionary<string, long>();
 		public List<MyOrderMetadata> OrdersMetadataList { get; set; }
 
 		private void api_Click(object sender, EventArgs e)
 		{
-			ApiForm af = new ApiForm(ac);
+			ApiForm af = new ApiForm(_ac);
 			af.FormBorderStyle = FormBorderStyle.FixedSingle;
 		}
 
 		private void pools_Click(object sender, EventArgs e)
 		{
-			PoolsForm pf = new PoolsForm(ac);
+			PoolsForm pf = new PoolsForm(_ac);
 			pf.FormBorderStyle = FormBorderStyle.FixedSingle;
 		}
 
@@ -160,7 +151,7 @@ namespace NHB3
 
 		private void newOrderToolStripMenuItem_Click(object sender, EventArgs e)
 		{
-			OrderForm of = new OrderForm(ac);
+			OrderForm of = new OrderForm(_ac);
 			of.FormBorderStyle = FormBorderStyle.FixedSingle;
 			of.FormClosed += new FormClosedEventHandler(f_FormClosed); //refresh orders
 		}
@@ -177,29 +168,29 @@ namespace NHB3
 
 		private void refreshBalance()
 		{
-			if (ac.connected)
+			if (_ac.connected)
 			{
-				JObject balance = ac.getBalance(currency);
+				JObject balance = _ac.getBalance(_currency);
 				if (balance != null)
 				{
-					this.toolStripStatusLabel2.Text = "Balance: " + balance["available"] + " " + currency;
+					this.toolStripStatusLabel2.Text = "Balance: " + balance["available"] + " " + _currency;
 				}
 			}
 			else
 			{
-				this.toolStripStatusLabel2.Text = "Balance: N/A " + currency;
+				this.toolStripStatusLabel2.Text = "Balance: N/A " + _currency;
 			}
 		}
 
 		private void refreshOrders(bool fromThread)
 		{
-			if (ac.connected)
+			if (_ac.connected)
 			{
-				orders = ac.getOrders();
+				_orders = _ac.getOrders();
 
 				//filter out data
 				JArray cleanOrders = new JArray();
-				foreach (JObject order in orders)
+				foreach (JObject order in _orders)
 				{
 					JObject cleanOrder = new JObject();
 					cleanOrder.Add("id", "" + order["id"]);
@@ -245,22 +236,22 @@ namespace NHB3
 
 		private void refreshMarket()
 		{
-			if (ac.connected)
+			if (_ac.connected)
 			{
-				market = ac.getMarket();
+				_market = _ac.getMarket();
 			}
 		}
 
 		private void autoPilotOffToolStripMenuItem_Click(object sender, EventArgs e)
 		{
 			toolStripStatusLabel1.Text = "Stopped";
-			botRunning = false;
+			_botRunning = false;
 		}
 
 		private void autoPilotONToolStripMenuItem_Click(object sender, EventArgs e)
 		{
 			toolStripStatusLabel1.Text = "Idle";
-			botRunning = true;
+			_botRunning = true;
 			try
 			{
 				runBot();
@@ -275,9 +266,9 @@ namespace NHB3
 		{
 			if (dataGridView1.Rows.GetRowCount(DataGridViewElementStates.Selected) == 1)
 			{
-				OrderForm of = new OrderForm(ac);
+				OrderForm of = new OrderForm(_ac);
 				of.FormBorderStyle = FormBorderStyle.FixedSingle;
-				of.setEditMode((JObject)orders[dataGridView1.SelectedRows[0].Index]);
+				of.setEditMode((JObject)_orders[dataGridView1.SelectedRows[0].Index]);
 				of.FormClosed += new FormClosedEventHandler(f_FormClosed); //refresh orders
 			}
 		}
@@ -292,7 +283,7 @@ namespace NHB3
 		private void runBot()
 		{
 			// START
-			if (!botRunning || isErrorState || cycleIsActive)
+			if (!_botRunning || _isErrorState || _cycleIsActive)
 				return;
 
 			toolStripStatusLabel1.Text = "Working";
@@ -300,29 +291,29 @@ namespace NHB3
 			Console.CursorSize = 10;
 
 			Console.ForegroundColor = ConsoleColor.White;
-			Console.WriteLine($"***Начало цикла {iteration}***\n");
-			cycleIsActive = true;
+			Console.WriteLine($"***Начало цикла {_iteration}***\n");
+			_cycleIsActive = true;
 
-			Control.CheckForIllegalCrossThreadCalls = false;
+			CheckForIllegalCrossThreadCalls = false;
 
 			refreshOrders(true);
 
-			JArray jAlgorithms = ac.algorithms;
+			var jAlgorithms = _ac.algorithms;
 
-			var myOrders = getMyOrders();
+			var myOrders = GetMyOrders();
 
 			var myAlgorithmNames = myOrders.Select(x => x.AlgorithmName).Distinct().ToList();
 			var myMarketNames = myOrders.Select(x => x.MarketName).Distinct().ToList();
 			var myOrderIds = myOrders.Select(x => x.Id).ToList();
-			var allBookOrders = getAllOrders(marketNames, jAlgorithms, myAlgorithmNames, myMarketNames).Where(x => !myOrderIds.Contains(x.Id)).ToList();
-			var jsonPrice = getJsonPrice(botSettings.JsonSettingsUrl);
+			var allBookOrders = GetAllOrders(_marketNames, jAlgorithms, myAlgorithmNames, myMarketNames).Where(x => !myOrderIds.Contains(x.Id)).ToList();
+			var jsonPrice = GetJsonPrice(_botSettings.JsonSettingsUrl);
 
-			String fileName = Path.Combine(Directory.GetCurrentDirectory(), "bot.json");
-			botSettings = JsonConvert.DeserializeObject<BotSettings>(File.ReadAllText(fileName));
-			if (botSettings.JsonPrice != 0)
-				jsonPrice = botSettings.JsonPrice;
+			var fileName = Path.Combine(Directory.GetCurrentDirectory(), "bot.json");
+			_botSettings = JsonConvert.DeserializeObject<BotSettings>(File.ReadAllText(fileName));
+			if (_botSettings.JsonPrice != 0)
+				jsonPrice = _botSettings.JsonPrice;
 
-			var marketSettings = botSettings.MarketSettings;
+			var marketSettings = _botSettings.MarketSettings;
 			var marketSettingNames = marketSettings.Select(x => x.Name).ToList();
 
 			var missingMarketNames = myMarketNames.Where(x1 => marketSettingNames.All(x2 => x2 != x1)).ToList();
@@ -334,7 +325,6 @@ namespace NHB3
 
 			var bookOrdersByAlgorithms = allBookOrders.GroupBy(x => x.AlgorithmName).ToDictionary(x => x.Key, x => x.ToList());
 			var myOrdersByAlgorithms = myOrders.GroupBy(x => x.AlgorithmName).ToDictionary(x => x.Key, x => x.ToList()).OrderBy(x => x.Key);
-
 
 			foreach (var algorithmKVP in myOrdersByAlgorithms)
 			{
@@ -371,7 +361,7 @@ namespace NHB3
 						.ToList();
 
 					var currentLimit = 0.0f;
-					var targetOrder = getTargetBookOrderInAlgoAndMarket(algoKey, totalLimit, targetBookOrders, ref currentLimit);
+					var targetOrder = GetTargetBookOrderInAlgoAndMarket(algoKey, totalLimit, targetBookOrders, ref currentLimit);
 					if (targetOrder == null)
 					{
 						WarnConsole("Не найден подходящий чужой ордер");
@@ -391,7 +381,7 @@ namespace NHB3
 						{
 							Console.WriteLine($"\t[{algoKey}]\tЦена самого дорогого ордера выше цены конкурирующего. Попытка снизить цену.");
 							// Пытаемся снизить цену.
-							var slowDonwResult = slowDownOrder(myMainOrder, targetPrice - this.DownStepByAlgoritm[myMainOrder.AlgorithmName], false);
+							var slowDonwResult = SlowDownOrder(myMainOrder, targetPrice - this.DownStepByAlgoritm[myMainOrder.AlgorithmName], false);
 							if (slowDonwResult == SlowDownResult.Ok)
 							{
 								Console.WriteLine($"\t[{algoKey}]\tЦена ордера установлена на {targetPrice}");
@@ -400,12 +390,12 @@ namespace NHB3
 							// Не получилось снизить цену.
 							else
 							{
-								Console.WriteLine($"\t[{algoKey}]\tСнижение цены не удалось, поиск ближайшего ордера в пределах {botSettings.MinStepsCountToFindOrder} минимальных шагов по отношению к цене {targetPrice}");
+								Console.WriteLine($"\t[{algoKey}]\tСнижение цены не удалось, поиск ближайшего ордера в пределах {_botSettings.MinStepsCountToFindOrder} минимальных шагов по отношению к цене {targetPrice}");
 
 								var myNextUpperOrder =
 									myAlgMarketOrders
 									.OrderByDescending(x => x.Price)
-									.FirstOrDefault(x => x.Id != myMainOrder.Id && x.Price < myMainOrder.Price && x.Price >= targetOrder.Price && x.Price < (targetOrder.Price + Math.Abs(this.DownStepByAlgoritm[algoKey]) * botSettings.MinStepsCountToFindOrder) && x.Price < jsonPrice);
+									.FirstOrDefault(x => x.Id != myMainOrder.Id && x.Price < myMainOrder.Price && x.Price >= targetOrder.Price && x.Price < (targetOrder.Price + Math.Abs(this.DownStepByAlgoritm[algoKey]) * _botSettings.MinStepsCountToFindOrder) && x.Price < jsonPrice);
 
 								if (myNextUpperOrder != null)
 								{
@@ -417,7 +407,7 @@ namespace NHB3
 									else
 									{
 										Console.WriteLine($"\t[{algoKey}]\tУстанавливаем новую скорость ({currentMarketSettings.MaxLimitSpeed})");
-										var updateResult = ac.updateOrder(algoKey, myNextUpperOrder.Id, myNextUpperOrder.Price.ToString(new CultureInfo("en-US")), currentMarketSettings.MaxLimitSpeed.ToString(new CultureInfo("en-US")));
+										var updateResult = _ac.updateOrder(algoKey, myNextUpperOrder.Id, myNextUpperOrder.Price.ToString(new CultureInfo("en-US")), currentMarketSettings.MaxLimitSpeed.ToString(new CultureInfo("en-US")));
 										if (updateResult.HasValues)
 										{
 											Console.WriteLine($"\t[{algoKey}]\tСкорость ордера повышена");
@@ -428,35 +418,33 @@ namespace NHB3
 								}
 								else
 								{
-									Console.WriteLine($"\t[{algoKey}]\tОрдер в пределах {botSettings.MinStepsCountToFindOrder} минимальных шагов не найден.");
-									//newMainOrder = getNextFreeOrder(algoKey, targetOrder, myAlgMarketOrders, targetPrice, currentMarketSettings.MaxLimitSpeed);
-									//if (newMainOrder == null) continue;
+									Console.WriteLine($"\t[{algoKey}]\tОрдер в пределах {_botSettings.MinStepsCountToFindOrder} минимальных шагов не найден.");
 								}
 							}
 						}
 						else if (myMainOrder.Price == targetPrice)
 						{
 							if (myMainOrder.Limit != currentMarketSettings.MaxLimitSpeed)
-								ac.updateOrder(algoKey, myMainOrder.Id, myMainOrder.Price.ToString(new CultureInfo("en-US")), currentMarketSettings.MaxLimitSpeed.ToString(new CultureInfo("en-US")));
+								_ac.updateOrder(algoKey, myMainOrder.Id, myMainOrder.Price.ToString(new CultureInfo("en-US")), currentMarketSettings.MaxLimitSpeed.ToString(new CultureInfo("en-US")));
 							Console.WriteLine($"\t[{algoKey}]\tГлавный ордер стоит перед конкурирующим. Изменения не требуются.");
 							newMainOrder = myMainOrder;
 						}
 						else
 						{
 							Console.WriteLine($"\t[{algoKey}]\tЦена главного ордера ниже цены конкурирующего. Повышение цены.");
-							ac.updateOrder(algoKey, myMainOrder.Id, targetPrice.ToString(new CultureInfo("en-US")), currentMarketSettings.MaxLimitSpeed.ToString(new CultureInfo("en-US")));
+							_ac.updateOrder(algoKey, myMainOrder.Id, targetPrice.ToString(new CultureInfo("en-US")), currentMarketSettings.MaxLimitSpeed.ToString(new CultureInfo("en-US")));
 							Console.WriteLine($"\t[{algoKey}]\tСкорость ордера повышена до {targetPrice}");
 							newMainOrder = myMainOrder;
 						}
 					}
 
 					if (newMainOrder == null)
-						newMainOrder = getNextFreeOrder(algoKey, targetOrder, myAlgMarketOrders, targetPrice, currentMarketSettings.MaxLimitSpeed);
+						newMainOrder = GetNextFreeOrder(algoKey, targetOrder, myAlgMarketOrders, targetPrice, currentMarketSettings.MaxLimitSpeed);
 					if (newMainOrder == null)
 					{
 						WarnConsole($"\t[{algoKey}]\tНе найден подходящий ордер с ценой ниже цены JSON. Понижение скорости всем ордерам с ценой выше {targetPrice}");
 						var uppers = myAlgMarketOrders.Where(x => x.Price > targetPrice).ToList();
-						uppers.ForEach(x => slowDownOrder(x, x.Price));
+						uppers.ForEach(x => SlowDownOrder(x, x.Price));
 						continue;
 					}
 
@@ -467,29 +455,29 @@ namespace NHB3
 					lowerOrders.ForEach(order =>
 					{
 						if (order.Limit < currentMarketSettings.MaxLimitSpeed)
-							ac.updateOrder(order.AlgorithmName, order.Id, order.Price.ToString(new CultureInfo("en-US")), currentMarketSettings.MaxLimitSpeed.ToString(new CultureInfo("en-US")));
-						slowDownOrder(order, order.Price, false);
+							_ac.updateOrder(order.AlgorithmName, order.Id, order.Price.ToString(new CultureInfo("en-US")), currentMarketSettings.MaxLimitSpeed.ToString(new CultureInfo("en-US")));
+						SlowDownOrder(order, order.Price, false);
 					});
 
 					var upperOrders = myAlgMarketOrders.Where(x => x.Id != newMainOrder.Id && x.Price > targetPrice).ToList();
 					Console.WriteLine($"\t[{algoKey}]\tПонижаем limit и speed активным ордерам выше главного ({upperOrders.Count} шт)");
 					upperOrders.ForEach(order =>
 					{
-						slowDownOrder(order, order.Price);
+						SlowDownOrder(order, order.Price);
 					});
 				}
 			}
 
 			var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
-			if (iteration > 1 && (currentTimeStamp - lastRunStamp) >= botSettings.RunRefillDelay)
+			if (_iteration > 1 && (currentTimeStamp - lastRunStamp) >= _botSettings.RunRefillDelay)
 			{
 				Console.WriteLine("\nRefill orders start");
 
 				myOrders.ForEach(order =>
 				{
-					var ok = (order.AvailableAmount - order.PayedAmount) < botSettings.RefillOrderLimit;
+					var ok = (order.AvailableAmount - order.PayedAmount) < _botSettings.RefillOrderLimit;
 					if (ok)
-						ac.refillOrder(order.Id, botSettings.RefillOrderAmount.ToString(new CultureInfo("en-US")));
+						_ac.refillOrder(order.Id, _botSettings.RefillOrderAmount.ToString(new CultureInfo("en-US")));
 				});
 				Console.WriteLine("Refill orders end\n");
 				lastRunStamp = currentTimeStamp;
@@ -497,23 +485,23 @@ namespace NHB3
 
 			toolStripStatusLabel1.Text = "Idle";
 
-			iteration++;
+			_iteration++;
 
 			var metadataFileName = Path.Combine(Directory.GetCurrentDirectory(), "ordersList.json");
 			File.WriteAllText(metadataFileName, JsonConvert.SerializeObject(this.OrdersMetadataList));
 
 			Console.WriteLine("\n***Окончание цикла***\n");
-			cycleIsActive = false;
+			_cycleIsActive = false;
 		}
 
-		private MyOrder getNextFreeOrder(string algoKey, BookOrder targetOrder, List<MyOrder> myAlgMarketOrders, float targetPrice, float maxLimitSpeed)
+		private MyOrder GetNextFreeOrder(string algoKey, BookOrder targetOrder, List<MyOrder> myAlgMarketOrders, float targetPrice, float maxLimitSpeed)
 		{
 			Console.WriteLine($"\t[{algoKey}]\tПоиск ближайшего ордера снизу от конкурирующего");
 			var myNextOrder = myAlgMarketOrders.FirstOrDefault(x => x.Price < targetOrder.Price);
 			if (myNextOrder != null)
 			{
 				Console.WriteLine($"\t[{algoKey}]\tНайден ордер {myNextOrder.Id}. Устанавливаем цену {targetPrice} и скорость {maxLimitSpeed}");
-				ac.updateOrder(algoKey, myNextOrder.Id, targetPrice.ToString(new CultureInfo("en-US")), maxLimitSpeed.ToString(new CultureInfo("en-US")));
+				_ac.updateOrder(algoKey, myNextOrder.Id, targetPrice.ToString(new CultureInfo("en-US")), maxLimitSpeed.ToString(new CultureInfo("en-US")));
 				return myNextOrder;
 			}
 			else
@@ -523,7 +511,7 @@ namespace NHB3
 			}
 		}
 
-		private static BookOrder getTargetBookOrderInAlgoAndMarket(string algoKey, float totalLimit, List<BookOrder> targetBookOrders, ref float currentLimit)
+		private static BookOrder GetTargetBookOrderInAlgoAndMarket(string algoKey, float totalLimit, List<BookOrder> targetBookOrders, ref float currentLimit)
 		{
 			BookOrder targetOrder = null;
 			foreach (var targetBookOrder in targetBookOrders)
@@ -538,7 +526,7 @@ namespace NHB3
 			return targetOrder;
 		}
 
-		private SlowDownResult slowDownOrder(MyOrder myOrder, float price, bool slowDownLimit = true)
+		private SlowDownResult SlowDownOrder(MyOrder myOrder, float price, bool slowDownLimit = true)
 		{
 			var result = SlowDownResult.Undefined;
 
@@ -548,7 +536,7 @@ namespace NHB3
 
 			// Понизить limit.
 			if (slowDownLimit && myOrder.Limit > this.MinLimitByAlgoritm[myOrder.AlgorithmName])
-				ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, myOrder.Price.ToString(new CultureInfo("en-US")), this.MinLimitByAlgoritm[myOrder.AlgorithmName].ToString(new CultureInfo("en-US")));
+				_ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, myOrder.Price.ToString(new CultureInfo("en-US")), this.MinLimitByAlgoritm[myOrder.AlgorithmName].ToString(new CultureInfo("en-US")));
 
 			var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
 
@@ -567,7 +555,7 @@ namespace NHB3
 				var limit = slowDownLimit ? this.MinLimitByAlgoritm[myOrder.AlgorithmName] : myOrder.Limit;
 
 				// Понизить price.
-				var updateResult = ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, decreasedPrice.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")));
+				var updateResult = _ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, decreasedPrice.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")));
 				if (updateResult.HasValues)
 				{
 					metadata.LastPriceDecreasedTime = currentTimeStamp;
@@ -582,16 +570,16 @@ namespace NHB3
 			return result;
 		}
 
-		private List<BookOrder> getAllOrders(List<string> marketNames, JArray jAlgorithms, List<string> myAlgorithmNames, List<string> myMarketNames)
+		private List<BookOrder> GetAllOrders(List<string> marketNames, JArray jAlgorithms, List<string> myAlgorithmNames, List<string> myMarketNames)
 		{
-			List<BookOrder> allBookOrders = new List<BookOrder>();
+			var allBookOrders = new List<BookOrder>();
 
 			foreach (var jAlgorithm in jAlgorithms)
 			{
 				var algorithmName = jAlgorithm["algorithm"].ToString();
 				if (!myAlgorithmNames.Contains(algorithmName)) continue;
 
-				var jOrders = ac.getOrderBookWebRequest(algorithmName);
+				var jOrders = _ac.getOrderBookWebRequest(algorithmName);
 
 				var jStats = jOrders["stats"];
 
@@ -618,10 +606,10 @@ namespace NHB3
 			return allBookOrders.Where(x => x.Alive).ToList();
 		}
 
-		private List<MyOrder> getMyOrders()
+		private List<MyOrder> GetMyOrders()
 		{
 			var myOrders = new List<MyOrder>();
-			foreach (var jOrder in orders)
+			foreach (var jOrder in _orders)
 			{
 				var myOrder = JsonConvert.DeserializeObject<MyOrder>(jOrder.ToString());
 				myOrder.MarketName = jOrder["market"].ToString();
@@ -631,14 +619,14 @@ namespace NHB3
 			return myOrders.OrderByDescending(x => x.Price).ToList();
 		}
 
-		private static float getJsonPrice(string url)
+		private static float GetJsonPrice(string url)
 		{
 			try
 			{
 				float jsonPrice = 0;
 				var request = WebRequest.Create(url);
 				var response = request.GetResponse();
-				using (Stream dataStream = response.GetResponseStream())
+				using (var dataStream = response.GetResponseStream())
 				{
 					var reader = new StreamReader(dataStream);
 					var responseFromServer = reader.ReadToEnd();
@@ -657,7 +645,7 @@ namespace NHB3
 		{
 			var prices = new Dictionary<string, float>();
 
-			foreach (JObject order in market)
+			foreach (JObject order in _market)
 			{
 				string order_type = "" + order["type"];
 				string order_algo = "" + order["algorithm"];
@@ -680,29 +668,29 @@ namespace NHB3
 			return prices;
 		}
 
-		private void clearOrders()
+		private void ClearOrders()
 		{
-			var orders = ac.getOrders();
+			var orders = _ac.getOrders();
 			foreach (var order in orders)
 			{
-				ac.cancelOrder(order["id"].ToString());
+				_ac.cancelOrder(order["id"].ToString());
 			}
 		}
 
 		private void HandleException(Exception ex)
 		{
-			var message = $"Ошибка в боте с ID ({botId}).\n\nТекст ошибки:\n\n{ex}\n\nОжидание {botSettings.ErrorDelay} секунд перед перезапуском";
+			var message = $"Ошибка в боте с ID ({_botId}).\n\nТекст ошибки:\n\n{ex}\n\nОжидание {_botSettings.ErrorDelay} секунд перед перезапуском";
 
 			Console.ForegroundColor = ConsoleColor.Red;
 			Console.WriteLine(message);
 
-			string urlString = $"https://api.telegram.org/bot{botSettings.TgBotToken}/sendMessage?chat_id={botSettings.TgChatId}&text={message}";
+			string urlString = $"https://api.telegram.org/bot{_botSettings.TgBotToken}/sendMessage?chat_id={_botSettings.TgChatId}&text={message}";
 			WebClient webclient = new WebClient();
 			webclient.DownloadString(urlString);
 
-			isErrorState = true;
-			Thread.Sleep(TimeSpan.FromSeconds(botSettings.ErrorDelay));
-			isErrorState = false;
+			_isErrorState = true;
+			Thread.Sleep(TimeSpan.FromSeconds(_botSettings.ErrorDelay));
+			_isErrorState = false;
 
 			Console.ForegroundColor = ConsoleColor.White;
 			Console.WriteLine("Перезапуск бота");
@@ -716,12 +704,10 @@ namespace NHB3
 		}
 	}
 
-	public enum SlowDownResult 
+	public enum SlowDownResult
 	{
 		Undefined,
 		Ok,
 		ApiError
-
 	}
-
 }
