@@ -25,4 +25,10 @@
 		public float AvailableAmount { get; set; }
 		public float PayedAmount { get; set; }
 	}
+
+	public class MyOrderMetadata
+	{
+		public string Id { get; set; }
+		public long LastPriceDecreasedTime { get; set; }
+	}
 }
