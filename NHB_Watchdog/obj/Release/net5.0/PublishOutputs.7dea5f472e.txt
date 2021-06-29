@@ -1,0 +1,7 @@
+C:\Source\NiceHashBot\NHB_Watchdog\obj\Release\net5.0\PubTmp\Out\NHB_Watchdog.exe
+C:\Source\NiceHashBot\NHB_Watchdog\obj\Release\net5.0\PubTmp\Out\appsettings.Development.json
+C:\Source\NiceHashBot\NHB_Watchdog\obj\Release\net5.0\PubTmp\Out\appsettings.json
+C:\Source\NiceHashBot\NHB_Watchdog\obj\Release\net5.0\PubTmp\Out\NHB_Watchdog.dll
+C:\Source\NiceHashBot\NHB_Watchdog\obj\Release\net5.0\PubTmp\Out\NHB_Watchdog.deps.json
+C:\Source\NiceHashBot\NHB_Watchdog\obj\Release\net5.0\PubTmp\Out\NHB_Watchdog.runtimeconfig.json
+C:\Source\NiceHashBot\NHB_Watchdog\obj\Release\net5.0\PubTmp\Out\NHB_Watchdog.pdb
