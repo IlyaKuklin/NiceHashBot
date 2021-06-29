@@ -42,7 +42,7 @@ namespace NHB3
 			{
 				_ac.setup(acSettings);
 
-//				ClearOrders();
+				//ClearOrders();
 
 				if (acSettings.Enviorment == 1)
 					_currency = "BTC";
@@ -55,7 +55,7 @@ namespace NHB3
 				var fileName = Path.Combine(Directory.GetCurrentDirectory(), "bot.json");
 				if (!File.Exists(fileName))
 					return;
-				
+
 				_botSettings = JsonConvert.DeserializeObject<BotSettings>(File.ReadAllText(fileName));
 				_processor = new Processor(_ac, _botSettings, _orders, _botId);
 
@@ -80,6 +80,7 @@ namespace NHB3
 					TimeSpan.FromSeconds(_botSettings.RunBotDelay));
 			}
 		}
+
 		private void api_Click(object sender, EventArgs e)
 		{
 			ApiForm af = new ApiForm(_ac);
@@ -275,6 +276,13 @@ namespace NHB3
 			var urlString = $"https://api.telegram.org/bot{_botSettings.TgBotToken}/sendMessage?chat_id={_botSettings.TgChatId}&text={message}";
 			var webclient = new WebClient();
 			webclient.DownloadString(urlString);
+
+			if (!string.IsNullOrEmpty(_botSettings.ErrorUrlHandler))
+			{
+				var request = WebRequest.Create(_botSettings.ErrorUrlHandler);
+				var response = request.GetResponse();
+				response.Dispose();
+			}
 
 			//_isErrorState = true;
 			_processor.SwitchErrorState(true);
