@@ -206,7 +206,7 @@ namespace NHB3
                 { "marketFactor", (string)selAlgo["marketFactor"] }
             };
 
-            string editOrderResponse = api.post("/main/api/v2/hashpower/order/" + id + "/updatePriceAndLimit", JsonConvert.SerializeObject(order), true, false);
+            string editOrderResponse = api.post("/main/api/v2/hashpower/order/" + id + "/updatePriceAndLimit", JsonConvert.SerializeObject(order), true);
             JObject orderObject = JsonConvert.DeserializeObject<JObject>(editOrderResponse);
 
             if (orderObject["error_id"] == null)

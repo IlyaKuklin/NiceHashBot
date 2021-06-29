@@ -286,6 +286,7 @@ namespace NHB3
 
 			//_isErrorState = true;
 			_processor.SwitchErrorState(true);
+			_processor.SwicthCycle(false);
 			Thread.Sleep(TimeSpan.FromSeconds(_botSettings.ErrorDelay));
 			_processor.SwitchErrorState(false);
 			//_isErrorState = false;
