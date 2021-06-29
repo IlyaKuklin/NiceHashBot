@@ -47,6 +47,9 @@ namespace NHB3.Types
 		public float MaxLimitSpeed { get; set; }
 
 		public AllocationSettings AllocationSettings { get; set; }
+
+		public float PriceRaiseStep { get; set; }
+		public float MaxLimitSpeedPercent { get; set; }
 	}
 
 	public class AllocationSettings
