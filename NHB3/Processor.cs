@@ -206,7 +206,7 @@ namespace NHB3
 						.ToList();
 
 					var currentLimit = 0.0f;
-					var targetOrder = GetTargetBookOrderInAlgoAndMarket(algoKey, totalLimit, targetBookOrders, ref currentLimit);
+					var targetOrder = GetTargetBookOrderInAlgoAndMarket(totalLimit, targetBookOrders, ref currentLimit);
 					if (targetOrder == null)
 					{
 						this.WarnConsole($"\t[{algoKey}]\tНе найден подходящий чужой ордер");
@@ -466,7 +466,7 @@ namespace NHB3
 			}
 		}
 
-		private static BookOrder GetTargetBookOrderInAlgoAndMarket(string algoKey, float totalLimit, List<BookOrder> targetBookOrders, ref float currentLimit)
+		private static BookOrder GetTargetBookOrderInAlgoAndMarket(float totalLimit, List<BookOrder> targetBookOrders, ref float currentLimit)
 		{
 			BookOrder targetOrder = null;
 			foreach (var targetBookOrder in targetBookOrders)
@@ -693,7 +693,6 @@ namespace NHB3
 
 				var groupOrders = new List<Order>();
 
-				//var minAllowedPrice = this.NormalizeFloat(targetPrice - (allocationSettings.ProcessedOrdersCount * allocationSettings.PriceStep));
 				var minAllowedPrice = this.NormalizeFloat((targetPrice - (allocationSettings.ProcessedOrdersCount * allocationSettings.PriceStep)));
 
 				Console.WriteLine($"\t[{algoKey}]\tЦена главного ордера: {targetPrice}. Минимально допустимая цена группы: {minAllowedPrice}");
@@ -713,7 +712,6 @@ namespace NHB3
 					var updated = order;
 
 					var delta = this.NormalizeFloat(previousOrderPrice - order.Price);
-					//var delta = previousOrderPrice - order.Price;
 					if (delta > allocationSettings.PriceStep)
 					{
 						var newPrice = this.NormalizeFloat(previousOrderPrice - allocationSettings.PriceStep);
@@ -757,7 +755,7 @@ namespace NHB3
 							if (previousOrder != null)
 							{
 								Thread.Sleep(2500);
-								this.SetPrice(previousOrder, previousOrder.Price + 0.0002f);
+								this.SetPrice(previousOrder, this.NormalizeFloat(previousOrder.Price + 0.0002f));
 							}
 						}
 					}
