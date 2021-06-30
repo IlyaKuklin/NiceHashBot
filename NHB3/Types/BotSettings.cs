@@ -50,6 +50,10 @@ namespace NHB3.Types
 
 		public float PriceRaiseStep { get; set; }
 		public float MaxLimitSpeedPercent { get; set; }
+
+		public float LowerOrdersLimitPriceRange { get; set; }
+
+		public float LowerOrdersLimitThreshold { get; set; }
 	}
 
 	public class AllocationSettings
