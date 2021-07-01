@@ -54,6 +54,12 @@ namespace NHB3.Types
 		public float LowerOrdersLimitPriceRange { get; set; }
 
 		public float LowerOrdersLimitThreshold { get; set; }
+
+		public int LowerOrdersLogicRunCycleGap { get; set; }
+
+
+		[JsonIgnore]
+		internal bool LowerOrdersSlowedDown { get; set; }
 	}
 
 	public class AllocationSettings

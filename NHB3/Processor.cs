@@ -13,7 +13,6 @@ namespace NHB3
 {
 	public class Processor
 	{
-		//private bool _cycleIsActive = false;
 		private long _iteration = 1;
 		private readonly List<string> _marketNames;
 		private long lastRunStamp;
@@ -119,7 +118,7 @@ namespace NHB3
 		internal void SwicthCycle(bool running) => this.CycleIsActive = running;
 
 		private Dictionary<string, string> MainOrdersByAlgoMarket { get; set; } = new Dictionary<string, string>();
-		private Dictionary<string, long> LastIterationOrdersLoweredByAlgoMarket { get; set; } = new Dictionary<string, long>();
+		private Dictionary<string, long> LowerOrdersNextIterationRunByAlgoMarket { get; set; } = new Dictionary<string, long>();
 
 		internal void RunBot()
 		{
@@ -149,10 +148,12 @@ namespace NHB3
 			var allBookOrders = this.GetAllOrders(_marketNames, jAlgorithms, myAlgorithmNames, myMarketNames).Where(x => !myOrderIds.Contains(x.Id)).ToList();
 			var jsonPrice = GetJsonPrice(_botSettings.JsonSettingsUrl);
 
-			var fileName = Path.Combine(Directory.GetCurrentDirectory(), "bot.json");
-			_botSettings = JsonConvert.DeserializeObject<BotSettings>(File.ReadAllText(fileName));
-			if (_botSettings.JsonPrice != 0)
-				jsonPrice = _botSettings.JsonPrice;
+			jsonPrice = 0.9f;
+
+			//var fileName = Path.Combine(Directory.GetCurrentDirectory(), "bot.json");
+			//_botSettings = JsonConvert.DeserializeObject<BotSettings>(File.ReadAllText(fileName));
+			//if (_botSettings.JsonPrice != 0)
+			//	jsonPrice = _botSettings.JsonPrice;
 
 			var marketSettings = _botSettings.MarketSettings;
 			var marketSettingNames = marketSettings.Select(x => x.Name).ToList();
@@ -185,6 +186,8 @@ namespace NHB3
 				{
 					var marketKey = myAlgMarketOrdersKVP.Key;
 					var totalLimit = this.TotalSpeedByMarket[$"{algoKey}.{marketKey}"];
+
+					var algoMarketKey = $"{algoKey}.{marketKey}";
 
 					Console.WriteLine("\t***");
 					Console.WriteLine($"\t[{algoKey}]\tОбработка маркета [{marketKey}]");
@@ -234,7 +237,6 @@ namespace NHB3
 							{
 								Console.WriteLine($"\t[{algoKey}]\tЦена ордера установлена на {targetPrice}");
 								newMainOrder = updated;
-								//newMainOrder.Price = updated.Price;
 								processedOrderIds.Add(myMainOrder.Id);
 							}
 
@@ -242,7 +244,6 @@ namespace NHB3
 							else
 							{
 								newMainOrder = this.GetOrderInStepsRange(jsonPrice, algoKey, myAlgMarketOrders, targetOrder, mainOrderLimitSpeed, targetPrice);
-								//targetPrice = newMainOrder.Price;
 							}
 						}
 						else if (myMainOrder.Price == targetPrice)
@@ -268,7 +269,6 @@ namespace NHB3
 					else
 					{
 						newMainOrder = this.GetOrderInStepsRange(jsonPrice, algoKey, myAlgMarketOrders, targetOrder, mainOrderLimitSpeed, targetPrice);
-						//targetPrice = newMainOrder.Price;
 					}
 
 
@@ -285,50 +285,67 @@ namespace NHB3
 					Console.WriteLine($"\t[{algoKey}]\tНаш текущий главный ордер имеет Id {newMainOrder.Id}");
 					processedOrderIds.Add(newMainOrder.Id);
 
-					
-					if (!this.MainOrdersByAlgoMarket.ContainsKey($"{newMainOrder.AlgorithmName}.{newMainOrder.MarketName}"))
-						this.MainOrdersByAlgoMarket.Add($"{newMainOrder.AlgorithmName}.{newMainOrder.MarketName}", "");
+					if (!this.MainOrdersByAlgoMarket.ContainsKey(algoMarketKey))
+						this.MainOrdersByAlgoMarket.Add(algoMarketKey, "");
 
-					var mainOrderChanged = this.MainOrdersByAlgoMarket[$"{newMainOrder.AlgorithmName}.{newMainOrder.MarketName}"] != newMainOrder.Id;
+					var mainOrderChanged = this.MainOrdersByAlgoMarket[algoMarketKey] != newMainOrder.Id;
 
-					this.MainOrdersByAlgoMarket[$"{newMainOrder.AlgorithmName}.{newMainOrder.MarketName}"] = newMainOrder.Id;
+					this.MainOrdersByAlgoMarket[algoMarketKey] = newMainOrder.Id;
 
-
-					Console.WriteLine($"\t[{algoKey}]\tПроверка чужих ордеров ниже главного.");
-
-					var minTargetPrice = newMainOrder.Price - currentMarketSettings.LowerOrdersLimitPriceRange;
-					var minLimit = currentMarketSettings.LowerOrdersLimitThreshold;
-
-					Console.WriteLine($"\t[{algoKey}]\tПоиск ордеров в диапазоне [{newMainOrder.Price}] - [{minTargetPrice}].");
-
-					var lowerBookOrders = bookAlgMarketOrders.Where(x => x.Alive && x.Price < newMainOrder.Price && x.Price >= minTargetPrice && !myAlgMarketOrdersIds.Contains(x.Id)).ToList();
-					var notMinimalLimitOrder = lowerBookOrders.FirstOrDefault(x => x.Limit != 0 && x.Limit > minLimit);
-					var hasOrdersWithHigherLimit = notMinimalLimitOrder != null;
-
-					var lastIterationOrdersLowered = this.LastIterationOrdersLoweredByAlgoMarket.ContainsKey($"{algoKey}.{marketKey}") && this.LastIterationOrdersLoweredByAlgoMarket[$"{algoKey}.{marketKey}"] == _iteration - 1;
-
-					//if (!hasOrdersWithHigherLimit)
-					//{
-					//	Console.WriteLine($"\t[{algoKey}]\tВсе чужие ордера в диапазоне имеют limit 0 или меньше минимальной. Выставляем минимальную скорость нашим ордерам");
-					//	foreach (var order in myAlgMarketOrders.Where(x => x.Id != newMainOrder.Id && x.Price > 0.0001f))
-					//	{
-					//		if (order.Limit != this.MinLimitByAlgoritm[algoKey])
-					//			this.SetLimit(order, this.MinLimitByAlgoritm[algoKey]);
-
-					//	}
-					//	Console.WriteLine($"\t[{algoKey}]\tОрдерам выставлена минимальная скорость");
-
-					//	if (!this.LastIterationOrdersLoweredByAlgoMarket.ContainsKey($"{algoKey}.{marketKey}"))
-					//		this.LastIterationOrdersLoweredByAlgoMarket.Add($"{algoKey}.{marketKey}", 0);
-					//	this.LastIterationOrdersLoweredByAlgoMarket[$"{algoKey}.{marketKey}"] = _iteration;
-					//}
-					//else
+					var needToRunLowerOrdersLogic = false;
+					var lowerOrdersLogicJustRan = false;
+					if (currentMarketSettings.LowerOrdersLogicRunCycleGap != 0)
 					{
-						//Console.WriteLine($"\t[{algoKey}]\tЕсть чужой ордер с лимитом выше минимального (Id [{notMinimalLimitOrder.Id}], limit [{notMinimalLimitOrder.Limit}])");
+						Console.WriteLine($"\t[{algoKey}]\tПроверка запуска логики понижения скорости");
+
+						if (!this.LowerOrdersNextIterationRunByAlgoMarket.ContainsKey(algoMarketKey))
+							this.LowerOrdersNextIterationRunByAlgoMarket.Add(algoMarketKey, currentMarketSettings.LowerOrdersLogicRunCycleGap);
+
+						needToRunLowerOrdersLogic = ((float)this.LowerOrdersNextIterationRunByAlgoMarket[algoMarketKey] / _iteration) == 1;
+						if (needToRunLowerOrdersLogic)
+						{
+							Console.WriteLine($"\t[{algoKey}]\tЛогика понижения скорости");
+
+							var minTargetPrice = newMainOrder.Price - currentMarketSettings.LowerOrdersLimitPriceRange;
+							var minLimit = currentMarketSettings.LowerOrdersLimitThreshold;
+
+							Console.WriteLine($"\t[{algoKey}]\tПоиск ордеров в диапазоне [{newMainOrder.Price}] - [{minTargetPrice}].");
+
+							var lowerBookOrders = bookAlgMarketOrders.Where(x => x.Alive && x.Price < newMainOrder.Price && x.Price >= minTargetPrice && !myAlgMarketOrdersIds.Contains(x.Id)).ToList();
+							var notMinimalLimitOrder = lowerBookOrders.FirstOrDefault(x => x.Limit != 0 && x.Limit > minLimit);
+							var hasOrdersWithHigherLimit = notMinimalLimitOrder != null;
+
+							if (!hasOrdersWithHigherLimit)
+							{
+								Console.WriteLine($"\t[{algoKey}]\tВсе чужие ордера в диапазоне имеют limit 0 или меньше минимальной. Выставляем минимальную скорость нашим ордерам");
+								foreach (var order in myAlgMarketOrders.Where(x => x.Id != newMainOrder.Id && x.Price > 0.0001f))
+								{
+									if (order.Limit != this.MinLimitByAlgoritm[algoKey])
+										this.SetLimit(order, this.MinLimitByAlgoritm[algoKey]);
+
+								}
+								Console.WriteLine($"\t[{algoKey}]\tОрдерам выставлена минимальная скорость");
+
+								currentMarketSettings.LowerOrdersSlowedDown = true;
+								lowerOrdersLogicJustRan = true;
+							}
+
+							this.LowerOrdersNextIterationRunByAlgoMarket[algoMarketKey] = _iteration + currentMarketSettings.LowerOrdersLogicRunCycleGap;
+						}
+					}
+
+					if (currentMarketSettings.LowerOrdersSlowedDown && mainOrderChanged)
+					{
+						Console.WriteLine("Главный ордер изменился. Не повышать скорость ордерам ниже.");
+					}
+					
+					else if (!needToRunLowerOrdersLogic && !lowerOrdersLogicJustRan)
+					{
 						this.FormOrdersGroup(myAlgMarketOrders, processedOrderIds, algoKey, currentMarketSettings, newMainOrder);
 						this.ProcessLowerOrders(processedOrderIds, algoKey, currentMarketSettings, myAlgMarketOrders, newMainOrder.Price);
-						this.ProcessUpperOrder(processedOrderIds, algoKey, myAlgMarketOrders, newMainOrder.Price);
+						currentMarketSettings.LowerOrdersSlowedDown = false;
 					}
+					this.ProcessUpperOrder(processedOrderIds, algoKey, myAlgMarketOrders, newMainOrder.Price);
 				}
 			}
 
