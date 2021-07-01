@@ -218,7 +218,6 @@ namespace NHB3
 					Console.WriteLine($"\t[{algoKey}]\tЦена, скорость, id конкурирующего ордера: {targetOrder.Price} | {targetOrder.Limit} | {targetOrder.Id}");
 
 					var mainOrderLimitSpeed = currentMarketSettings.MaxLimitSpeed;
-					mainOrderLimitSpeed = this.GetMainOrderLimit(algoKey, totalLimit, currentMarketSettings, myAlgMarketOrders, bookAlgMarketOrders, targetOrder, mainOrderLimitSpeed);
 
 					var priceRaiseStep = currentMarketSettings.PriceRaiseStep == 0 ? 0.0001f : currentMarketSettings.PriceRaiseStep;
 
@@ -227,12 +226,14 @@ namespace NHB3
 					var myMainOrder = myAlgMarketOrders.OrderByDescending(x => x.Price).FirstOrDefault(x => x.Price >= targetOrder.Price && x.Price <= targetPrice + priceRaiseStep);
 					if (myMainOrder != null)
 					{
+						mainOrderLimitSpeed = this.GetMainOrderLimit(algoKey, totalLimit, currentMarketSettings, myAlgMarketOrders, bookAlgMarketOrders, targetOrder.Price, mainOrderLimitSpeed, myMainOrder.Id);
+
 						Console.WriteLine($"\t[{algoKey}]\tНаш главный ордер имеет цену {myMainOrder.Price}");
 						if (myMainOrder.Price > targetPrice)
 						{
 							Console.WriteLine($"\t[{algoKey}]\tЦена главного ордера выше цены конкурирующего. Попытка снизить цену.");
 							// Пытаемся снизить цену.
-							var updated = this.SetPrice(myMainOrder, targetPrice);
+							var updated = this.UpdateOrder(myMainOrder, targetPrice, mainOrderLimitSpeed);
 							if (updated != null)
 							{
 								Console.WriteLine($"\t[{algoKey}]\tЦена ордера установлена на {targetPrice}");
@@ -243,7 +244,7 @@ namespace NHB3
 							// Не получилось снизить цену.
 							else
 							{
-								newMainOrder = this.GetOrderInStepsRange(jsonPrice, algoKey, myAlgMarketOrders, targetOrder, mainOrderLimitSpeed, targetPrice);
+								newMainOrder = this.GetOrderInStepsRange(jsonPrice, algoKey, myAlgMarketOrders, targetOrder, targetPrice, totalLimit, currentMarketSettings, bookAlgMarketOrders);
 							}
 						}
 						else if (myMainOrder.Price == targetPrice)
@@ -268,12 +269,12 @@ namespace NHB3
 					}
 					else
 					{
-						newMainOrder = this.GetOrderInStepsRange(jsonPrice, algoKey, myAlgMarketOrders, targetOrder, mainOrderLimitSpeed, targetPrice);
+						newMainOrder = this.GetOrderInStepsRange(jsonPrice, algoKey, myAlgMarketOrders, targetOrder, targetPrice, totalLimit, currentMarketSettings, bookAlgMarketOrders);
 					}
 
 
 					if (newMainOrder == null)
-						newMainOrder = this.GetNextFreeOrder(algoKey, myAlgMarketOrders, targetPrice, mainOrderLimitSpeed);
+						newMainOrder = this.GetNextFreeOrder(algoKey, myAlgMarketOrders, targetPrice, currentMarketSettings.MaxLimitSpeed, totalLimit, currentMarketSettings, bookAlgMarketOrders, targetOrder.Price);
 					if (newMainOrder == null)
 					{
 						this.WarnConsole($"\t[{algoKey}]\tНе найден подходящий ордер с ценой ниже цены JSON. Понижение скорости всем ордерам с ценой выше {targetPrice}");
@@ -360,7 +361,7 @@ namespace NHB3
 			this.CycleIsActive = false;
 		}
 
-		private Order GetOrderInStepsRange(float jsonPrice, string algoKey, List<Order> myAlgMarketOrders, BookOrder targetOrder, float mainOrderLimitSpeed, float targetPrice)
+		private Order GetOrderInStepsRange(float jsonPrice, string algoKey, List<Order> myAlgMarketOrders, BookOrder targetOrder, float targetPrice, float totalLimit, BotMarketSettings currentMarketSettings, List<BookOrder> bookAlgMarketOrders)
 		{
 			var myNextUpperOrder =
 				myAlgMarketOrders
@@ -369,6 +370,8 @@ namespace NHB3
 
 			if (myNextUpperOrder != null)
 			{
+				var mainOrderLimitSpeed = this.GetMainOrderLimit(algoKey, totalLimit, currentMarketSettings, myAlgMarketOrders, bookAlgMarketOrders, targetOrder.Price, myNextUpperOrder.Limit, myNextUpperOrder.Id);
+
 				Console.WriteLine($"\t[{algoKey}]\tНайден ордер с ценой {myNextUpperOrder.Price}");
 				if (myNextUpperOrder.Limit == mainOrderLimitSpeed)
 				{
@@ -431,14 +434,14 @@ namespace NHB3
 			});
 		}
 
-		private float GetMainOrderLimit(string algoKey, float totalLimit, BotMarketSettings currentMarketSettings, List<Order> myAlgMarketOrders, List<BookOrder> bookAlgMarketOrders, BookOrder targetOrder, float mainOrderLimitSpeed)
+		private float GetMainOrderLimit(string algoKey, float totalLimit, BotMarketSettings currentMarketSettings, List<Order> myAlgMarketOrders, List<BookOrder> bookAlgMarketOrders, float targetOrderPrice, float mainOrderLimitSpeed, string mainOrderId)
 		{
 			if (currentMarketSettings.MaxLimitSpeedPercent > 0)
 			{
 				Console.WriteLine($"\t[{algoKey}]\tВключена настройка переопределения скорости для главного ордера");
 
-				var upperOrdersPayingSpeedSum = bookAlgMarketOrders.Where(x => x.Alive && x.Price > targetOrder.Price).Sum(x => x.Limit);
-				upperOrdersPayingSpeedSum += myAlgMarketOrders.Where(x => x.Price > targetOrder.Price).Sum(x => x.Limit);
+				var upperOrdersPayingSpeedSum = bookAlgMarketOrders.Where(x => x.Alive && x.Price > targetOrderPrice).Sum(x => x.Limit);
+				upperOrdersPayingSpeedSum += myAlgMarketOrders.Where(x => x.Id != mainOrderId && x.Price > targetOrderPrice).Sum(x => x.Limit);
 
 				var ratio = upperOrdersPayingSpeedSum / totalLimit * 100;
 				Console.WriteLine($"\t[{algoKey}]\tОбщая скорость маркета: {totalLimit}. Сумма лимитов ордеров выше главного: {upperOrdersPayingSpeedSum}. Процент суммы по отношению к общей скорости: {ratio}");
@@ -466,14 +469,16 @@ namespace NHB3
 			return mainOrderLimitSpeed;
 		}
 
-		private Order GetNextFreeOrder(string algoKey, List<Order> myAlgMarketOrders, float targetPrice, float maxLimitSpeed)
+		private Order GetNextFreeOrder(string algoKey, List<Order> myAlgMarketOrders, float targetPrice, float maxLimitSpeed, float totalLimit, BotMarketSettings currentMarketSettings, List<BookOrder> bookAlgMarketOrders, float targetOrderPrice)
 		{
 			Console.WriteLine($"\t[{algoKey}]\tПоиск ближайшего ордера снизу от конкурирующего");
 			var myNextOrder = myAlgMarketOrders.FirstOrDefault(x => x.Price < targetPrice);
 			if (myNextOrder != null)
 			{
-				Console.WriteLine($"\t[{algoKey}]\tНайден ордер {myNextOrder.Id}. Устанавливаем цену {targetPrice} и скорость {maxLimitSpeed}");
-				myNextOrder = _ac.updateOrder(algoKey, myNextOrder.Id, targetPrice.ToString(new CultureInfo("en-US")), maxLimitSpeed.ToString(new CultureInfo("en-US")))?.Item1;
+				var mainOrderLimitSpeed = this.GetMainOrderLimit(algoKey, totalLimit, currentMarketSettings, myAlgMarketOrders, bookAlgMarketOrders, targetOrderPrice, maxLimitSpeed, myNextOrder.Id);
+
+				Console.WriteLine($"\t[{algoKey}]\tНайден ордер {myNextOrder.Id}. Устанавливаем цену {targetPrice} и скорость {mainOrderLimitSpeed}");
+				myNextOrder = _ac.updateOrder(algoKey, myNextOrder.Id, targetPrice.ToString(new CultureInfo("en-US")), mainOrderLimitSpeed.ToString(new CultureInfo("en-US")))?.Item1;
 				return myNextOrder;
 			}
 			else
@@ -500,8 +505,33 @@ namespace NHB3
 
 		private Order UpdateOrder(Order order, float price, float limit)
 		{
-			var updated = _ac.updateOrder(order.AlgorithmName, order.Id, price.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
-			return updated;
+			var id = order.Id;
+			if (price < order.Price)
+			{
+				var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
+				var metadata = this.OrdersMetadataList.FirstOrDefault(x => x.Id == id);
+				if (metadata == null)
+				{
+					metadata = new MyOrderMetadata { Id = order.Id, LastPriceDecreasedTime = 0 };
+					this.OrdersMetadataList.Add(metadata);
+				}
+				var difference = currentTimeStamp - metadata.LastPriceDecreasedTime;
+				if (difference > 600)
+				{
+					order = _ac.updateOrder(order.AlgorithmName, order.Id, price.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
+					metadata.LastPriceDecreasedTime = currentTimeStamp;
+					if (order == null)
+						return this.SetLimit(order, limit);
+					return order;
+				}
+				else
+					return this.SetLimit(order, limit);
+			}
+			else
+			{
+				var updated = _ac.updateOrder(order.AlgorithmName, order.Id, price.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
+				return updated;
+			}
 		}
 
 		private Order SetLimit(Order order, float limit = 0)
@@ -539,50 +569,6 @@ namespace NHB3
 
 			order = _ac.updateOrder(order.AlgorithmName, order.Id, price.ToString(new CultureInfo("en-US")), order.Limit.ToString(new CultureInfo("en-US")))?.Item1;
 			return order;
-		}
-
-		private SlowDownResult SlowDownOrder(Order myOrder, float price, bool slowDownLimit = true)
-		{
-			// Понизить limit.
-			if (slowDownLimit && myOrder.Limit > this.MinLimitByAlgoritm[myOrder.AlgorithmName])
-				this.SetLimit(myOrder);
-
-			var result = SlowDownResult.Undefined;
-
-			var decreasedPrice = price + this.DownStepByAlgoritm[myOrder.AlgorithmName];
-			if (price <= 0)
-				throw new ApplicationException("Ошибка понижения цены");
-
-			var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
-
-			var metadata = this.OrdersMetadataList.FirstOrDefault(x => x.Id == myOrder.Id);
-			if (metadata == null)
-			{
-				metadata = new MyOrderMetadata { Id = myOrder.Id, LastPriceDecreasedTime = 0 };
-				this.OrdersMetadataList.Add(metadata);
-			}
-
-			var difference = currentTimeStamp - metadata.LastPriceDecreasedTime;
-			long slowDownDelay = 600;
-
-			if (difference > slowDownDelay)
-			{
-				var limit = slowDownLimit ? this.MinLimitByAlgoritm[myOrder.AlgorithmName] : myOrder.Limit;
-
-				// Понизить price.
-				myOrder = _ac.updateOrder(myOrder.AlgorithmName, myOrder.Id, decreasedPrice.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
-				if (myOrder != null)
-				{
-					metadata.LastPriceDecreasedTime = currentTimeStamp;
-					result = SlowDownResult.Ok;
-				}
-				else
-				{
-					result = SlowDownResult.ApiError;
-				}
-			}
-
-			return result;
 		}
 
 		private List<BookOrder> GetAllOrders(List<string> marketNames, JArray jAlgorithms, List<string> myAlgorithmNames, List<string> myMarketNames)
