@@ -148,7 +148,7 @@ namespace NHB3
 			var allBookOrders = this.GetAllOrders(_marketNames, jAlgorithms, myAlgorithmNames, myMarketNames).Where(x => !myOrderIds.Contains(x.Id)).ToList();
 			var jsonPrice = GetJsonPrice(_botSettings.JsonSettingsUrl);
 
-			jsonPrice = 0.9f;
+			//jsonPrice = 0.9f;
 
 			//var fileName = Path.Combine(Directory.GetCurrentDirectory(), "bot.json");
 			//_botSettings = JsonConvert.DeserializeObject<BotSettings>(File.ReadAllText(fileName));
@@ -297,8 +297,6 @@ namespace NHB3
 					var lowerOrdersLogicJustRan = false;
 					if (currentMarketSettings.LowerOrdersLogicRunCycleGap != 0)
 					{
-						Console.WriteLine($"\t[{algoKey}]\tПроверка запуска логики понижения скорости");
-
 						if (!this.LowerOrdersNextIterationRunByAlgoMarket.ContainsKey(algoMarketKey))
 							this.LowerOrdersNextIterationRunByAlgoMarket.Add(algoMarketKey, currentMarketSettings.LowerOrdersLogicRunCycleGap);
 
@@ -329,6 +327,10 @@ namespace NHB3
 
 								currentMarketSettings.LowerOrdersSlowedDown = true;
 								lowerOrdersLogicJustRan = true;
+							}
+							else
+							{
+								Console.WriteLine($"\t[{algoKey}]\tВ диапазоне найден орден с ценой выше минимальной. Ордерам не будет выставлена минимальная скорость");
 							}
 
 							this.LowerOrdersNextIterationRunByAlgoMarket[algoMarketKey] = _iteration + currentMarketSettings.LowerOrdersLogicRunCycleGap;
@@ -443,16 +445,16 @@ namespace NHB3
 				var upperOrdersPayingSpeedSum = bookAlgMarketOrders.Where(x => x.Alive && x.Price > targetOrderPrice).Sum(x => x.Limit);
 				upperOrdersPayingSpeedSum += myAlgMarketOrders.Where(x => x.Id != mainOrderId && x.Price > targetOrderPrice).Sum(x => x.Limit);
 
-				var ratio = upperOrdersPayingSpeedSum / totalLimit * 100;
-				Console.WriteLine($"\t[{algoKey}]\tОбщая скорость маркета: {totalLimit}. Сумма лимитов ордеров выше главного: {upperOrdersPayingSpeedSum}. Процент суммы по отношению к общей скорости: {ratio}");
-
-				var calculatedLimit = this.NormalizeFloat((currentMarketSettings.MaxLimitSpeedPercent - ratio) / 100);
+				var ratio =  this.NormalizeFloat(currentMarketSettings.MaxLimitSpeedPercent / 100 * totalLimit, 2);
+				var calculatedLimit = this.NormalizeFloat(ratio - upperOrdersPayingSpeedSum);
 
 				var minLimitByAlgoString = this.MinLimitByAlgoritm[algoKey].ToString();
 				var parts = minLimitByAlgoString.Split('.');
 				var decimals = parts[1].Length;
 
 				calculatedLimit = this.NormalizeFloat(calculatedLimit, decimals);
+
+				Console.WriteLine($"\t[{algoKey}]\tОбщая скорость маркета: {totalLimit}. Сумма лимитов ордеров выше главного: {upperOrdersPayingSpeedSum}. Процент от маркета из настройки: {ratio}.");
 
 				Console.WriteLine($"\t[{algoKey}]\tРассчитанный лимит с учётом шага - [{calculatedLimit}]");
 
