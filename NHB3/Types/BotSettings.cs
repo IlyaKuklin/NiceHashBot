@@ -57,6 +57,7 @@ namespace NHB3.Types
 
 		public int LowerOrdersLogicRunCycleGap { get; set; }
 
+		public RivalOrderDetectionSettings RivalOrderDetectionSettings { get; set; }
 
 		[JsonIgnore]
 		internal bool LowerOrdersSlowedDown { get; set; }
@@ -86,5 +87,12 @@ namespace NHB3.Types
 				return list;
 			}
 		}
+	}
+
+	public class RivalOrderDetectionSettings
+	{
+		public bool On { get; set; }
+		public float MinLimit { get; set; }
+		public float MaxLimit { get; set; }
 	}
 }
