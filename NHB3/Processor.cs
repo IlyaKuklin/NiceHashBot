@@ -207,9 +207,8 @@ namespace NHB3
 						.Where(x => x.Price < jsonPrice)
 						.OrderByDescending(x => x.Price)
 						.ToList();
-
-					var currentLimit = 0.0f;
-					var targetOrder = GetTargetBookOrderInAlgoAndMarket(totalLimit, targetBookOrders, ref currentLimit);
+					
+					var targetOrder = GetTargetBookOrderInAlgoAndMarket(totalLimit, targetBookOrders);
 					if (targetOrder == null)
 					{
 						this.WarnConsole($"\t[{algoKey}]\tНе найден подходящий чужой ордер");
@@ -498,8 +497,9 @@ namespace NHB3
 			}
 		}
 
-		private static BookOrder GetTargetBookOrderInAlgoAndMarket(float totalLimit, List<BookOrder> targetBookOrders, ref float currentLimit)
+		private static BookOrder GetTargetBookOrderInAlgoAndMarket(float totalLimit, List<BookOrder> targetBookOrders)
 		{
+			var currentLimit = 0.0f;
 			BookOrder targetOrder = null;
 			foreach (var targetBookOrder in targetBookOrders)
 			{
