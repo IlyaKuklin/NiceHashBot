@@ -222,6 +222,7 @@ namespace NHB3
 					var priceRaiseStep = currentMarketSettings.PriceRaiseStep == 0 ? 0.0001f : currentMarketSettings.PriceRaiseStep;
 
 					Order newMainOrder = null;
+
 					var targetPrice = (float)Math.Round(targetOrder.Price + priceRaiseStep, 4);
 					var myMainOrder = myAlgMarketOrders.OrderByDescending(x => x.Price).FirstOrDefault(x => x.Price >= targetOrder.Price && x.Price <= targetPrice + priceRaiseStep);
 					if (myMainOrder != null)
@@ -229,7 +230,7 @@ namespace NHB3
 						mainOrderLimitSpeed = this.GetMainOrderLimit(algoKey, totalLimit, currentMarketSettings, myAlgMarketOrders, bookAlgMarketOrders, targetOrder.Price, mainOrderLimitSpeed, myMainOrder.Id);
 
 						Console.WriteLine($"\t[{algoKey}]\tНаш главный ордер имеет цену {myMainOrder.Price}");
-						if (myMainOrder.Price > targetPrice)
+						if (myMainOrder.Price > targetOrder.Price && myMainOrder.Price > targetPrice)
 						{
 							Console.WriteLine($"\t[{algoKey}]\tЦена главного ордера выше цены конкурирующего. Попытка снизить цену.");
 							// Пытаемся снизить цену.
@@ -247,7 +248,7 @@ namespace NHB3
 								newMainOrder = this.GetOrderInStepsRange(jsonPrice, algoKey, myAlgMarketOrders, targetOrder, targetPrice, totalLimit, currentMarketSettings, bookAlgMarketOrders);
 							}
 						}
-						else if (myMainOrder.Price == targetPrice)
+						else if (myMainOrder.Price > targetOrder.Price && myMainOrder.Price <= targetPrice)
 						{
 							if (myMainOrder.Limit != mainOrderLimitSpeed)
 								_ac.updateOrder(algoKey, myMainOrder.Id, myMainOrder.Price.ToString(new CultureInfo("en-US")), mainOrderLimitSpeed.ToString(new CultureInfo("en-US")));
@@ -277,9 +278,16 @@ namespace NHB3
 						newMainOrder = this.GetNextFreeOrder(algoKey, myAlgMarketOrders, targetPrice, currentMarketSettings.MaxLimitSpeed, totalLimit, currentMarketSettings, bookAlgMarketOrders, targetOrder.Price);
 					if (newMainOrder == null)
 					{
-						this.WarnConsole($"\t[{algoKey}]\tНе найден подходящий ордер с ценой ниже цены JSON. Понижение скорости всем ордерам с ценой выше {targetPrice}");
+						this.WarnConsole($"\t[{algoKey}]\tНе найден подходящий ордер с ценой ниже цены JSON. Понижение скорости и цены всем ордерам с ценой выше {targetPrice}");
 						var uppers = myAlgMarketOrders.Where(x => x.Price > targetPrice).ToList();
-						uppers.ForEach(x => this.SetLimit(x, this.MinLimitByAlgoritm[x.AlgorithmName]));
+
+						uppers.ForEach(x => 
+						{
+							var price = x.Price + this.DownStepByAlgoritm[x.AlgorithmName];
+							var limit = this.MinLimitByAlgoritm[x.AlgorithmName];
+							this.UpdateOrder(x, price, limit);
+							//this.SetLimit(x, this.MinLimitByAlgoritm[x.AlgorithmName]);
+						});
 						continue;
 					}
 
