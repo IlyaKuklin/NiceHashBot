@@ -800,35 +800,6 @@ namespace NHB3
 						}
 					}
 
-					//else if (delta > 0.0002f && !groupOrders.Any())
-					//{
-					//	var newPrice = this.NormalizeFloat(previousOrderPrice - 0.0002f);
-					//	var newLimit = order.Limit != limitSetting.MaxLimitSpeed ? limitSetting.MaxLimitSpeed : order.Limit;
-
-					//	Console.WriteLine($"\t[{algoKey}]\tДельта с ценой предыдущего главного ордера меньше {0.0002f}. Попытка снизить цену на {0.0002f}");
-
-					//	updated = this.UpdateOrder(order, newPrice, newLimit);
-					//	if (updated == null)
-					//	{
-					//		this.WarnConsole("Главный ордер и ордер за ним имеют одинаковую цену. Измените цену вручную");
-					//		updated = order;
-					//	}
-					//}
-
-					//else if (delta > 0.0002f)
-					//{
-					//	var floatsEqual = CompareFloats(delta, 0.0002f, 4);
-					//	if (!floatsEqual)
-					//	{
-					//		var previousOrder = groupOrders.LastOrDefault();
-					//		if (previousOrder != null)
-					//		{
-					//			Thread.Sleep(2500);
-					//			this.SetPrice(previousOrder, this.NormalizeFloat(previousOrder.Price + 0.0002f));
-					//		}
-					//	}
-					//}
-
 					groupOrders.Add(updated);
 					targetPosition = groupOrders.Count + 1;
 					previousOrderPrice = updated.Price;
