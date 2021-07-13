@@ -472,7 +472,7 @@ namespace NHB3
 				var upperOrdersPayingSpeedSum = bookAlgMarketOrders.Where(x => x.Alive && x.Price > targetOrderPrice).Sum(x => x.Limit);
 				upperOrdersPayingSpeedSum += myAlgMarketOrders.Where(x => x.Id != mainOrderId && x.Price > targetOrderPrice).Sum(x => x.Limit);
 
-				var ratio =  this.NormalizeFloat(currentMarketSettings.MaxLimitSpeedPercent / 100 * totalLimit, 2);
+				var ratio = this.NormalizeFloat(currentMarketSettings.MaxLimitSpeedPercent / 100 * totalLimit, 2);
 				var calculatedLimit = this.NormalizeFloat(ratio - upperOrdersPayingSpeedSum);
 
 				var minLimitByAlgoString = this.MinLimitByAlgoritm[algoKey].ToString();
@@ -494,6 +494,8 @@ namespace NHB3
 					mainOrderLimitSpeed = calculatedLimit;
 				}
 			}
+			else
+				mainOrderLimitSpeed = currentMarketSettings.MaxLimitSpeed;
 
 			return mainOrderLimitSpeed;
 		}
