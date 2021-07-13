@@ -280,7 +280,6 @@ namespace NHB3
 						newMainOrder = this.GetOrderInStepsRange(jsonPrice, algoKey, myAlgMarketOrders, targetOrder, targetPrice, totalLimit, currentMarketSettings, bookAlgMarketOrders);
 					}
 
-
 					if (newMainOrder == null)
 						newMainOrder = this.GetNextFreeOrder(algoKey, myAlgMarketOrders, targetPrice, currentMarketSettings.MaxLimitSpeed, totalLimit, currentMarketSettings, bookAlgMarketOrders, targetOrder.Price);
 					if (newMainOrder == null)
