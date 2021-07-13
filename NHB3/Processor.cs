@@ -18,7 +18,7 @@ namespace NHB3
 		private long lastRunStamp;
 
 		private readonly ApiConnect _ac;
-		private BotSettings _botSettings;
+		private readonly BotSettings _botSettings;
 		private JArray _orders;
 
 		private readonly string _botId;
@@ -552,9 +552,7 @@ namespace NHB3
 				{
 					order = _ac.updateOrder(order.AlgorithmName, order.Id, price.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
 					metadata.LastPriceDecreasedTime = currentTimeStamp;
-					if (order == null)
-						return this.SetLimit(order, limit);
-					return order;
+					return order ?? this.SetLimit(order, limit);
 				}
 				else
 					return this.SetLimit(order, limit);
@@ -880,13 +878,4 @@ namespace NHB3
 			return intDiff <= (1 << maxDeltaBits);
 		}
 	}
-
-	public enum SlowDownResult
-	{
-		Undefined,
-		Ok,
-		ApiError
-	}
-
-
 }

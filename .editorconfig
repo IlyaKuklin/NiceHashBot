@@ -26,3 +26,9 @@ csharp_style_var_for_built_in_types = true:suggestion
 
 # IDE0008: Use explicit type
 csharp_style_var_when_type_is_apparent = true:suggestion
+
+# IDE0022: Use expression body for methods
+csharp_style_expression_bodied_methods = false:silent
+
+# IDE0022: Use block body for methods
+dotnet_diagnostic.IDE0022.severity = silent
