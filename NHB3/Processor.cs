@@ -224,61 +224,11 @@ namespace NHB3
 
 					Console.WriteLine($"\t[{algoKey}]\tЦена, скорость, id конкурирующего ордера: {targetOrder.Price} | {targetOrder.Limit} | {targetOrder.Id}");
 
-					var mainOrderLimitSpeed = currentMarketSettings.MaxLimitSpeed;
-
 					var priceRaiseStep = currentMarketSettings.PriceRaiseStep == 0 ? 0.0001f : currentMarketSettings.PriceRaiseStep;
 
-					Order newMainOrder = null;
-
 					var targetPrice = (float)Math.Round(targetOrder.Price + priceRaiseStep, 4);
-					var myMainOrder = myAlgMarketOrders.OrderByDescending(x => x.Price).FirstOrDefault(x => x.Price >= targetOrder.Price && x.Price <= targetPrice + priceRaiseStep);
-					if (myMainOrder != null)
-					{
-						mainOrderLimitSpeed = this.GetMainOrderLimit(algoKey, totalLimit, currentMarketSettings, myAlgMarketOrders, bookAlgMarketOrders, targetOrder.Price, mainOrderLimitSpeed, myMainOrder.Id);
 
-						Console.WriteLine($"\t[{algoKey}]\tНаш главный ордер имеет цену {myMainOrder.Price}");
-						if (myMainOrder.Price > targetOrder.Price && myMainOrder.Price > targetPrice)
-						{
-							Console.WriteLine($"\t[{algoKey}]\tЦена главного ордера выше цены конкурирующего. Попытка снизить цену.");
-							// Пытаемся снизить цену.
-							var updated = this.UpdateOrder(myMainOrder, targetPrice, mainOrderLimitSpeed);
-							if (updated != null)
-							{
-								Console.WriteLine($"\t[{algoKey}]\tЦена ордера установлена на {targetPrice}");
-								newMainOrder = updated;
-								processedOrderIds.Add(myMainOrder.Id);
-							}
-
-							// Не получилось снизить цену.
-							else
-							{
-								newMainOrder = this.GetOrderInStepsRange(jsonPrice, algoKey, myAlgMarketOrders, targetOrder, targetPrice, totalLimit, currentMarketSettings, bookAlgMarketOrders);
-							}
-						}
-						else if (myMainOrder.Price > targetOrder.Price && myMainOrder.Price <= targetPrice)
-						{
-							if (myMainOrder.Limit != mainOrderLimitSpeed)
-								_ac.updateOrder(algoKey, myMainOrder.Id, myMainOrder.Price.ToString(new CultureInfo("en-US")), mainOrderLimitSpeed.ToString(new CultureInfo("en-US")));
-							Console.WriteLine($"\t[{algoKey}]\tГлавный ордер стоит перед конкурирующим. Изменения не требуются.");
-							newMainOrder = myMainOrder;
-						}
-						else
-						{
-							Console.WriteLine($"\t[{algoKey}]\tЦена главного ордера ниже цены конкурирующего + шаг повышения ({priceRaiseStep}). Повышение цены.");
-							myMainOrder = _ac.updateOrder(algoKey, myMainOrder.Id, targetPrice.ToString(new CultureInfo("en-US")), mainOrderLimitSpeed.ToString(new CultureInfo("en-US")))?.Item1;
-							if (myMainOrder != null)
-							{
-								Console.WriteLine($"\t[{algoKey}]\tСкорость ордера повышена до {targetPrice}");
-								newMainOrder = myMainOrder;
-							}
-							else
-								Console.WriteLine($"\t[{algoKey}]\tОшибка при повышении цены");
-						}
-					}
-					else
-					{
-						newMainOrder = this.GetOrderInStepsRange(jsonPrice, algoKey, myAlgMarketOrders, targetOrder, targetPrice, totalLimit, currentMarketSettings, bookAlgMarketOrders);
-					}
+					var newMainOrder = GetNewMainOrder(jsonPrice, processedOrderIds, algoKey, totalLimit, currentMarketSettings, myAlgMarketOrders, bookAlgMarketOrders, targetOrder, priceRaiseStep, targetPrice);
 
 					if (newMainOrder == null)
 						newMainOrder = this.GetNextFreeOrder(algoKey, myAlgMarketOrders, targetPrice, currentMarketSettings.MaxLimitSpeed, totalLimit, currentMarketSettings, bookAlgMarketOrders, targetOrder.Price);
@@ -374,6 +324,63 @@ namespace NHB3
 
 			Console.WriteLine("\n***Окончание цикла***\n");
 			this.CycleIsActive = false;
+		}
+
+		private Order GetNewMainOrder(float jsonPrice, List<string> processedOrderIds, string algoKey, float totalLimit, BotMarketSettings currentMarketSettings, List<Order> myAlgMarketOrders, List<BookOrder> bookAlgMarketOrders, BookOrder targetOrder, float priceRaiseStep, float targetPrice)
+		{
+			Order newMainOrder = null;
+
+			var mainOrderLimitSpeed = currentMarketSettings.MaxLimitSpeed;
+			var myMainOrder = myAlgMarketOrders.OrderByDescending(x => x.Price).FirstOrDefault(x => x.Price >= targetOrder.Price && x.Price <= targetPrice + priceRaiseStep);
+			if (myMainOrder != null)
+			{
+				mainOrderLimitSpeed = this.GetMainOrderLimit(algoKey, totalLimit, currentMarketSettings, myAlgMarketOrders, bookAlgMarketOrders, targetOrder.Price, mainOrderLimitSpeed, myMainOrder.Id);
+
+				Console.WriteLine($"\t[{algoKey}]\tНаш главный ордер имеет цену {myMainOrder.Price}");
+				if (myMainOrder.Price > targetOrder.Price && myMainOrder.Price > targetPrice)
+				{
+					Console.WriteLine($"\t[{algoKey}]\tЦена главного ордера выше цены конкурирующего. Попытка снизить цену.");
+					// Пытаемся снизить цену.
+					var updated = this.UpdateOrder(myMainOrder, targetPrice, mainOrderLimitSpeed);
+					if (updated != null)
+					{
+						Console.WriteLine($"\t[{algoKey}]\tЦена ордера установлена на {targetPrice}");
+						newMainOrder = updated;
+						processedOrderIds.Add(myMainOrder.Id);
+					}
+
+					// Не получилось снизить цену.
+					else
+					{
+						newMainOrder = this.GetOrderInStepsRange(jsonPrice, algoKey, myAlgMarketOrders, targetOrder, targetPrice, totalLimit, currentMarketSettings, bookAlgMarketOrders);
+					}
+				}
+				else if (myMainOrder.Price > targetOrder.Price && myMainOrder.Price <= targetPrice)
+				{
+					if (myMainOrder.Limit != mainOrderLimitSpeed)
+						_ac.updateOrder(algoKey, myMainOrder.Id, myMainOrder.Price.ToString(new CultureInfo("en-US")), mainOrderLimitSpeed.ToString(new CultureInfo("en-US")));
+					Console.WriteLine($"\t[{algoKey}]\tГлавный ордер стоит перед конкурирующим. Изменения не требуются.");
+					newMainOrder = myMainOrder;
+				}
+				else
+				{
+					Console.WriteLine($"\t[{algoKey}]\tЦена главного ордера ниже цены конкурирующего + шаг повышения ({priceRaiseStep}). Повышение цены.");
+					myMainOrder = _ac.updateOrder(algoKey, myMainOrder.Id, targetPrice.ToString(new CultureInfo("en-US")), mainOrderLimitSpeed.ToString(new CultureInfo("en-US")))?.Item1;
+					if (myMainOrder != null)
+					{
+						Console.WriteLine($"\t[{algoKey}]\tСкорость ордера повышена до {targetPrice}");
+						newMainOrder = myMainOrder;
+					}
+					else
+						Console.WriteLine($"\t[{algoKey}]\tОшибка при повышении цены");
+				}
+			}
+			else
+			{
+				newMainOrder = this.GetOrderInStepsRange(jsonPrice, algoKey, myAlgMarketOrders, targetOrder, targetPrice, totalLimit, currentMarketSettings, bookAlgMarketOrders);
+			}
+
+			return newMainOrder;
 		}
 
 		private static BookOrder GetTargetBookOrderByLimitRange(RivalOrderDetectionSettings settings, List<BookOrder> targetBookOrders)
