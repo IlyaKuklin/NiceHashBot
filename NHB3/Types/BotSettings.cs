@@ -16,6 +16,8 @@ namespace NHB3.Types
 
 		public int MinStepsCountToFindOrder { get; set; }
 
+		public float PriceLimitToFindOrder { get; set; }
+
 		public int RunRefillDelay { get; set; }
 
 		// После какого остатка делать refill.
@@ -23,6 +25,9 @@ namespace NHB3.Types
 
 		// Объём refill.
 		public float RefillOrderAmount { get; set; }
+
+		// С какого затраченного амаунта начинать рефилл
+		public float RefillPayedAmountLimit { get; set; }
 
 		public string TgBotToken { get; set; }
 
