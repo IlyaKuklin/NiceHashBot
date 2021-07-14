@@ -414,7 +414,7 @@ namespace NHB3
 		{
 			var priceLimit = _botSettings.PriceLimitToFindOrder == 0.0f
 				? targetPrice + Math.Abs(this.DownStepByAlgoritm[algoKey]) * _botSettings.MinStepsCountToFindOrder
-				: _botSettings.PriceLimitToFindOrder;
+				: targetPrice + _botSettings.PriceLimitToFindOrder;
 
 			var myNextUpperOrder =
 				myAlgMarketOrders
@@ -715,7 +715,11 @@ namespace NHB3
 		private void RunRefillLogic(List<Order> myOrders)
 		{
 			var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
-			if (_iteration > 1 && (currentTimeStamp - lastRunStamp) >= _botSettings.RunRefillDelay)
+
+			if (_iteration == 1)
+				lastRunStamp = currentTimeStamp;
+
+			if ((currentTimeStamp - lastRunStamp) >= _botSettings.RunRefillDelay)
 			{
 				Console.WriteLine("\nRefill orders start");
 
@@ -749,7 +753,9 @@ namespace NHB3
 
 				var groupOrders = new List<Order>();
 
-				var minAllowedPrice = this.NormalizeFloat((targetPrice - (allocationSettings.ProcessedOrdersCount * allocationSettings.PriceStep)));
+				var allocationSettingsSum = allocationSettings.LimitSettings.Take(allocationSettings.ProcessedOrdersCount).Sum(x => x.PriceStep);
+
+				var minAllowedPrice = this.NormalizeFloat(targetPrice - allocationSettingsSum);
 
 				Console.WriteLine($"\t[{algoKey}]\tЦена главного ордера: {targetPrice}. Минимально допустимая цена группы: {minAllowedPrice}");
 
@@ -768,15 +774,15 @@ namespace NHB3
 					var updated = order;
 
 					var delta = this.NormalizeFloat(previousOrderPrice - order.Price);
-					if (delta > allocationSettings.PriceStep)
+					if (delta > limitSetting.PriceStep)
 					{
-						var newPrice = this.NormalizeFloat(previousOrderPrice - allocationSettings.PriceStep);
+						var newPrice = this.NormalizeFloat(previousOrderPrice - limitSetting.PriceStep);
 						var newLimit = order.Limit != limitSetting.MaxLimitSpeed ? limitSetting.MaxLimitSpeed : order.Limit;
 
 						var floatsEqual = CompareFloats(newPrice, order.Price, 4);
 						if (!floatsEqual)
 						{
-							Console.WriteLine($"\t[{algoKey}]\tДельта с ценой предыдущего ордера выше {allocationSettings.PriceStep}. Повышаем цену до {newPrice}, изменяем скорость на {newLimit}");
+							Console.WriteLine($"\t[{algoKey}]\tДельта с ценой предыдущего ордера выше {limitSetting.PriceStep}. Повышаем цену до {newPrice}, изменяем скорость на {newLimit}");
 
 							updated = this.UpdateOrder(order, newPrice, newLimit);
 							if (updated == null)
@@ -814,8 +820,8 @@ namespace NHB3
 					foreach (var lowerOrder in lowerOrders)
 					{
 						targetPosition = groupOrders.Count + 1;
-						var groupOrderTargetPrice = this.NormalizeFloat(previousOrderPrice - allocationSettings.PriceStep);
 						var limitSetting = allocationSettings.LimitSettings.FirstOrDefault(x => x.OrdersPositionsList.Contains(targetPosition));
+						var groupOrderTargetPrice = this.NormalizeFloat(previousOrderPrice - limitSetting.PriceStep);
 
 						var newPrice = groupOrderTargetPrice;
 						var newLimit = lowerOrder.Limit != limitSetting.MaxLimitSpeed ? limitSetting.MaxLimitSpeed : lowerOrder.Limit;

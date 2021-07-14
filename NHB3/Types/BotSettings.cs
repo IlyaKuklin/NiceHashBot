@@ -71,7 +71,6 @@ namespace NHB3.Types
 	public class AllocationSettings
 	{
 		public int ProcessedOrdersCount { get; set; }
-		public float PriceStep { get; set; }
 		public float OtherOrdersLimitSettings { get; set; }
 		public List<AllocationLimitSettings> LimitSettings { get; set; }
 	}
@@ -80,6 +79,7 @@ namespace NHB3.Types
 	{
 		public string OrdersPositions { get; set; }
 		public float MaxLimitSpeed { get; set; }
+		public float PriceStep { get; set; }
 
 		[JsonIgnore]
 		public List<int> OrdersPositionsList
