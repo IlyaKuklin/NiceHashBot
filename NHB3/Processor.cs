@@ -721,7 +721,7 @@ namespace NHB3
 
 				myOrders.ForEach(order =>
 				{
-					var ok = ( (order.PayedAmount < _botSettings.RefillPayedAmountLimit) && ((order.AvailableAmount - order.PayedAmount) < _botSettings.RefillOrderLimit));
+					var ok = ( (order.PayedAmount > _botSettings.RefillPayedAmountLimit) && ((order.AvailableAmount - order.PayedAmount) < _botSettings.RefillOrderLimit));
 					if (ok)
 						_ac.refillOrder(order.Id, _botSettings.RefillOrderAmount.ToString(new CultureInfo("en-US")));
 				});
