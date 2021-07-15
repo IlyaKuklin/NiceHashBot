@@ -571,7 +571,7 @@ namespace NHB3
 					this.OrdersMetadataList.Add(metadata);
 				}
 				var difference = currentTimeStamp - metadata.LastPriceDecreasedTime;
-				if (difference > 600)
+				if (difference > 605)
 				{
 					order = _ac.updateOrder(order.AlgorithmName, order.Id, price.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
 					metadata.LastPriceDecreasedTime = currentTimeStamp;
@@ -606,7 +606,7 @@ namespace NHB3
 					this.OrdersMetadataList.Add(metadata);
 				}
 				var difference = currentTimeStamp - metadata.LastPriceDecreasedTime;
-				if (difference > 600)
+				if (difference > 605)
 				{
 					order = _ac.updateOrder(order.AlgorithmName, order.Id, price.ToString(new CultureInfo("en-US")), order.Limit.ToString(new CultureInfo("en-US")))?.Item1;
 					if (order != null)
@@ -764,19 +764,19 @@ namespace NHB3
 				Console.WriteLine($"\t[{algoKey}]\tКоличество ордеров в диапазоне [{targetPrice}]-[{minAllowedPrice}] : {ordersBetween.Count}");
 
 				var targetPosition = 1;
-				var previousOrderPrice = targetPrice;
+				//var previousOrderPrice = targetPrice;
 				foreach (var order in ordersBetween)
 				{
-					Console.WriteLine($"\t[{algoKey}]\tОбработка ордера с Id [{order.Id}]. Цена: [{order.Price}]. Цена предыдущего ордера: [{previousOrderPrice}]");
+					Console.WriteLine($"\t[{algoKey}]\tОбработка ордера с Id [{order.Id}]. Цена: [{order.Price}]. Цена предыдущего ордера: [{targetPrice}]");
 
 					var limitSetting = allocationSettings.LimitSettings.FirstOrDefault(x => x.OrdersPositionsList.Contains(targetPosition));
 
 					var updated = order;
 
-					var delta = this.NormalizeFloat(previousOrderPrice - order.Price);
+					var delta = this.NormalizeFloat(targetPrice - order.Price);
 					if (delta > limitSetting.PriceStep)
 					{
-						var newPrice = this.NormalizeFloat(previousOrderPrice - limitSetting.PriceStep);
+						var newPrice = this.NormalizeFloat(targetPrice - limitSetting.PriceStep);
 						var newLimit = order.Limit != limitSetting.MaxLimitSpeed ? limitSetting.MaxLimitSpeed : order.Limit;
 
 						var floatsEqual = CompareFloats(newPrice, order.Price, 4);
@@ -792,10 +792,22 @@ namespace NHB3
 							}
 						}
 					}
+					else if (delta < limitSetting.PriceStep)
+					{
+						var desiredPrice = this.NormalizeFloat(targetPrice - limitSetting.PriceStep, 4);
+						var step = this.DownStepByAlgoritm[order.AlgorithmName];
+
+						if (this.NormalizeFloat(order.Price + step, 4) > desiredPrice)
+						{
+							this.SetPrice(order, order.Price + step);
+						}
+						else
+							this.SetPrice(order, desiredPrice);
+					}
 
 					groupOrders.Add(updated);
 					targetPosition = groupOrders.Count + 1;
-					previousOrderPrice = updated.Price;
+					//previousOrderPrice = updated.Price;
 
 					if (updated.Limit != limitSetting.MaxLimitSpeed)
 						this.SetLimit(order, limitSetting.MaxLimitSpeed);
@@ -812,16 +824,16 @@ namespace NHB3
 				{
 					Console.WriteLine($"\t[{algoKey}]\tКоличество ордеров в группе главных меньше {allocationSettings.ProcessedOrdersCount}. Поиск ордеров с меньшей стоимостью.");
 
-					previousOrderPrice = groupOrders.Any() ? groupOrders.Last().Price : targetPrice;
+					//previousOrderPrice = groupOrders.Any() ? groupOrders.Last().Price : targetPrice;
 
-					var lowerOrders = orders.Where(x => x.Price <= previousOrderPrice && !processedOrderIds.Contains(x.Id)).OrderByDescending(x => x.Price).ToList();
+					var lowerOrders = orders.Where(x => x.Price <= targetPrice && !processedOrderIds.Contains(x.Id)).OrderByDescending(x => x.Price).ToList();
 					Console.WriteLine($"\t[{algoKey}]\tКоличество найденных ордеров с меньшей стоимостью: {lowerOrders.Count}");
 
 					foreach (var lowerOrder in lowerOrders)
 					{
 						targetPosition = groupOrders.Count + 1;
 						var limitSetting = allocationSettings.LimitSettings.FirstOrDefault(x => x.OrdersPositionsList.Contains(targetPosition));
-						var groupOrderTargetPrice = this.NormalizeFloat(previousOrderPrice - limitSetting.PriceStep);
+						var groupOrderTargetPrice = this.NormalizeFloat(targetPrice - limitSetting.PriceStep);
 
 						var newPrice = groupOrderTargetPrice;
 						var newLimit = lowerOrder.Limit != limitSetting.MaxLimitSpeed ? limitSetting.MaxLimitSpeed : lowerOrder.Limit;
@@ -836,7 +848,7 @@ namespace NHB3
 							if (updated != null)
 							{
 								groupOrders.Add(updated);
-								previousOrderPrice = groupOrderTargetPrice;
+								//previousOrderPrice = groupOrderTargetPrice;
 							}
 							else
 								this.WarnConsole($"\t[{algoKey}]\tНе удалось обработать ордер с Id [{lowerOrder.Id}]");
