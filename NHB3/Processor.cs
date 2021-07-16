@@ -156,11 +156,11 @@ namespace NHB3
 			var jAlgorithms = _ac.algorithms;
 
 			var myOrders = this.GetMyOrders();
-
 			var myAlgorithmNames = myOrders.Select(x => x.AlgorithmName).Distinct().ToList();
 			var myMarketNames = myOrders.Select(x => x.MarketName).Distinct().ToList();
 			var myOrderIds = myOrders.Select(x => x.Id).ToList();
-			var allBookOrders = this.GetAllOrders(_marketNames, jAlgorithms, myAlgorithmNames, myMarketNames).Where(x => !myOrderIds.Contains(x.Id)).ToList();
+
+			var allBookOrders = this.GetAllOrders(_marketNames, myMarketNames).Where(x => !myOrderIds.Contains(x.Id)).ToList();
 			var jsonPrice = GetJsonPrice(_botSettings.JsonSettingsUrl);
 
 			var fileName = Path.Combine(Directory.GetCurrentDirectory(), "bot.json");
@@ -622,16 +622,14 @@ namespace NHB3
 			return order;
 		}
 
-		private List<BookOrder> GetAllOrders(List<string> marketNames, JArray jAlgorithms, List<string> myAlgorithmNames, List<string> myMarketNames)
+		private List<BookOrder> GetAllOrders(List<string> marketNames, List<string> myMarketNames)
 		{
 			var allBookOrders = new List<BookOrder>();
 
-			foreach (var jAlgorithm in jAlgorithms)
-			{
-				var algorithmName = jAlgorithm["algorithm"].ToString();
-				if (!myAlgorithmNames.Contains(algorithmName)) continue;
+				//var algorithmName = jAlgorithm["algorithm"].ToString();
+				//if (algorithmName.ToLowerInvariant() != _botSettings.AlgorithmName.ToLowerInvariant()) continue;
 
-				var jOrders = _ac.getOrderBookWebRequest(algorithmName);
+				var jOrders = _ac.getOrderBookWebRequest(_botSettings.AlgorithmName);
 
 				var jStats = jOrders["stats"];
 
@@ -642,7 +640,7 @@ namespace NHB3
 					var jMarketOrders = jStats[marketName]?["orders"];
 
 					var totalSpeed = jStats[marketName]?["totalSpeed"].ToString();
-					var key = $"{algorithmName}.{marketName}";
+					var key = $"{_botSettings.AlgorithmName}.{marketName}";
 					if (totalSpeed != null && !this.TotalSpeedByMarket.ContainsKey(key))
 						this.TotalSpeedByMarket.Add(key, 0);
 					this.TotalSpeedByMarket[key] = (float)Math.Round(Convert.ToDouble(totalSpeed, new CultureInfo("en-US")), 4);
@@ -650,11 +648,10 @@ namespace NHB3
 					if (jMarketOrders != null)
 					{
 						var marketBookOrders = JsonConvert.DeserializeObject<List<BookOrder>>(jMarketOrders.ToString());
-						marketBookOrders.ForEach(x => { x.MarketName = marketName; x.AlgorithmName = algorithmName; });
+						marketBookOrders.ForEach(x => { x.MarketName = marketName; x.AlgorithmName = _botSettings.AlgorithmName; });
 						allBookOrders.AddRange(marketBookOrders);
 					}
 				}
-			}
 			return allBookOrders.Where(x => x.Alive).ToList();
 		}
 
@@ -666,7 +663,8 @@ namespace NHB3
 				var myOrder = JsonConvert.DeserializeObject<Order>(jOrder.ToString());
 				myOrder.MarketName = jOrder["market"].ToString();
 				myOrder.AlgorithmName = jOrder["algorithm"]["algorithm"].ToString();
-				myOrders.Add(myOrder);
+				if (myOrder.AlgorithmName.ToLowerInvariant() == _botSettings.AlgorithmName.ToLowerInvariant())
+					myOrders.Add(myOrder);
 			}
 			return myOrders.OrderByDescending(x => x.Price).ToList();
 		}

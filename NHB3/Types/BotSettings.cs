@@ -6,7 +6,7 @@ namespace NHB3.Types
 {
 	public class BotSettings
 	{
-		/** Актуальные. */
+		public string AlgorithmName { get; set; }
 
 		// Частота запуска логики бота (в секундах).
 		public int RunBotDelay { get; set; }
