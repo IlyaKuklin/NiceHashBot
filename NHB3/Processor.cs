@@ -140,23 +140,16 @@ namespace NHB3
 				return;
 			}
 
-			var balance = this.GetBalance();
-			if (_botSettings.MinBalanceToRunBot > balance)
-			{
-				this.WarnConsole($"Баланс аккаунта ({balance}) меньше настройки {nameof(_botSettings.MinBalanceToRunBot)} ({_botSettings.MinBalanceToRunBot})", true);
-				return;
-			}
-
 			Console.ForegroundColor = ConsoleColor.White;
 			Console.WriteLine($"***Начало цикла {_iteration}***\n");
 			this.CycleIsActive = true;
 
 			this.RefreshOrders();
 
-			var jAlgorithms = _ac.algorithms;
-
 			var myOrders = this.GetMyOrders();
-			var myAlgorithmNames = myOrders.Select(x => x.AlgorithmName).Distinct().ToList();
+			var balanceCheckResult = CheckBalance(myOrders);
+			if (!balanceCheckResult) return;
+
 			var myMarketNames = myOrders.Select(x => x.MarketName).Distinct().ToList();
 			var myOrderIds = myOrders.Select(x => x.Id).ToList();
 
@@ -318,6 +311,24 @@ namespace NHB3
 
 			Console.WriteLine("\n***Окончание цикла***\n");
 			this.CycleIsActive = false;
+		}
+
+		private bool CheckBalance(List<Order> myOrders)
+		{
+			var balance = this.GetBalance();
+			if (_botSettings.MinBalanceToRunBot > balance)
+			{
+				this.WarnConsole($"Баланс аккаунта ({balance}) меньше настройки {nameof(_botSettings.MinBalanceToRunBot)} ({_botSettings.MinBalanceToRunBot}). Отправка команды на снижение цены и скорости", true);
+				myOrders.ForEach(x =>
+				{
+					var price = x.Price + this.DownStepByAlgoritm[x.AlgorithmName];
+					var limit = this.MinLimitByAlgoritm[x.AlgorithmName];
+					this.UpdateOrder(x, price, limit);
+				});
+				this.WarnConsole("Работа завершена", true);
+				return false;
+			}
+			return true;
 		}
 
 		private Order GetNewMainOrder(float jsonPrice, List<string> processedOrderIds, string algoKey, float totalLimit, BotMarketSettings currentMarketSettings, List<Order> myAlgMarketOrders, List<BookOrder> bookAlgMarketOrders, BookOrder targetOrder)
@@ -587,7 +598,10 @@ namespace NHB3
 
 		private Order SetLimit(Order order, float limit = 0)
 		{
-			order = _ac.updateOrder(order.AlgorithmName, order.Id, order.Price.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
+			if (!CompareFloats(order.Limit, limit, 6))
+			{
+				order = _ac.updateOrder(order.AlgorithmName, order.Id, order.Price.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
+			}
 			return order;
 		}
 
@@ -663,6 +677,8 @@ namespace NHB3
 				var myOrder = JsonConvert.DeserializeObject<Order>(jOrder.ToString());
 				myOrder.MarketName = jOrder["market"].ToString();
 				myOrder.AlgorithmName = jOrder["algorithm"]["algorithm"].ToString();
+				myOrder.PoolId = Guid.Parse(jOrder["pool"]["id"].ToString());
+				myOrder.PoolName = jOrder["pool"]["name"].ToString();
 				if (myOrder.AlgorithmName.ToLowerInvariant() == _botSettings.AlgorithmName.ToLowerInvariant())
 					myOrders.Add(myOrder);
 			}
