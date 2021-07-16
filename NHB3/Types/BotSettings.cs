@@ -42,6 +42,11 @@ namespace NHB3.Types
 		public List<BotMarketSettings> MarketSettings { get; set; }
 
 		public bool AllocationSettingsOn { get; set; }
+
+		/// <summary>
+		/// Минимальный баланс, при котором отрабатывает логика бота.
+		/// </summary>
+		public float MinBalanceToRunBot { get; set; }
 	}
 
 	public class BotMarketSettings

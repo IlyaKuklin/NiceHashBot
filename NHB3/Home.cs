@@ -20,7 +20,7 @@ namespace NHB3
 		private JArray _orders;
 		private JArray _market;
 		private readonly Timer _timer;
-		private BotSettings _botSettings;
+		private readonly BotSettings _botSettings;
 		private readonly string _botId;
 
 		private readonly Processor _processor;
@@ -48,7 +48,6 @@ namespace NHB3
 					_currency = "BTC";
 				_ac.currency = _currency;
 
-				refreshBalance();
 				refreshOrders(false);
 				_ac.getPools(true);
 
@@ -111,26 +110,11 @@ namespace NHB3
 			refreshOrders(false);
 		}
 
-		private void balanceToolStripMenuItem_Click(object sender, EventArgs e)
-		{
-			refreshBalance();
-		}
+		//private void balanceToolStripMenuItem_Click(object sender, EventArgs e)
+		//{
+		//	refreshBalance();
+		//}
 
-		private void refreshBalance()
-		{
-			if (_ac.connected)
-			{
-				JObject balance = _ac.getBalance(_currency);
-				if (balance != null)
-				{
-					this.toolStripStatusLabel2.Text = "Balance: " + balance["available"] + " " + _currency;
-				}
-			}
-			else
-			{
-				this.toolStripStatusLabel2.Text = "Balance: N/A " + _currency;
-			}
-		}
 
 		private void refreshOrders(bool fromThread)
 		{

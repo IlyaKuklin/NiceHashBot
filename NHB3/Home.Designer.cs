@@ -34,7 +34,6 @@
 			this.newOrderToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.editSelectedOrderToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.ordersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
-			this.balanceToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.toolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
 			this.toolStripMenuItem2 = new System.Windows.Forms.ToolStripMenuItem();
 			this.toolStripMenuItem3 = new System.Windows.Forms.ToolStripMenuItem();
@@ -70,8 +69,7 @@
 			this.refreshToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.newOrderToolStripMenuItem,
             this.editSelectedOrderToolStripMenuItem,
-            this.ordersToolStripMenuItem,
-            this.balanceToolStripMenuItem});
+            this.ordersToolStripMenuItem});
 			this.refreshToolStripMenuItem.Name = "refreshToolStripMenuItem";
 			this.refreshToolStripMenuItem.Size = new System.Drawing.Size(59, 22);
 			this.refreshToolStripMenuItem.Text = "Actions";
@@ -79,30 +77,23 @@
 			// newOrderToolStripMenuItem
 			// 
 			this.newOrderToolStripMenuItem.Name = "newOrderToolStripMenuItem";
-			this.newOrderToolStripMenuItem.Size = new System.Drawing.Size(171, 22);
+			this.newOrderToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
 			this.newOrderToolStripMenuItem.Text = "New order";
 			this.newOrderToolStripMenuItem.Click += new System.EventHandler(this.newOrderToolStripMenuItem_Click);
 			// 
 			// editSelectedOrderToolStripMenuItem
 			// 
 			this.editSelectedOrderToolStripMenuItem.Name = "editSelectedOrderToolStripMenuItem";
-			this.editSelectedOrderToolStripMenuItem.Size = new System.Drawing.Size(171, 22);
+			this.editSelectedOrderToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
 			this.editSelectedOrderToolStripMenuItem.Text = "Edit selected order";
 			this.editSelectedOrderToolStripMenuItem.Click += new System.EventHandler(this.editSelectedOrderToolStripMenuItem_Click);
 			// 
 			// ordersToolStripMenuItem
 			// 
 			this.ordersToolStripMenuItem.Name = "ordersToolStripMenuItem";
-			this.ordersToolStripMenuItem.Size = new System.Drawing.Size(171, 22);
+			this.ordersToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
 			this.ordersToolStripMenuItem.Text = "Refresh orders";
 			this.ordersToolStripMenuItem.Click += new System.EventHandler(this.ordersToolStripMenuItem_Click);
-			// 
-			// balanceToolStripMenuItem
-			// 
-			this.balanceToolStripMenuItem.Name = "balanceToolStripMenuItem";
-			this.balanceToolStripMenuItem.Size = new System.Drawing.Size(171, 22);
-			this.balanceToolStripMenuItem.Text = "Refresh balance";
-			this.balanceToolStripMenuItem.Click += new System.EventHandler(this.balanceToolStripMenuItem_Click);
 			// 
 			// toolStripMenuItem1
 			// 
@@ -165,14 +156,14 @@
 			// autoPilotOffToolStripMenuItem
 			// 
 			this.autoPilotOffToolStripMenuItem.Name = "autoPilotOffToolStripMenuItem";
-			this.autoPilotOffToolStripMenuItem.Size = new System.Drawing.Size(112, 22);
+			this.autoPilotOffToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
 			this.autoPilotOffToolStripMenuItem.Text = "Bot Off";
 			this.autoPilotOffToolStripMenuItem.Click += new System.EventHandler(this.autoPilotOffToolStripMenuItem_Click);
 			// 
 			// autoPilotONToolStripMenuItem
 			// 
 			this.autoPilotONToolStripMenuItem.Name = "autoPilotONToolStripMenuItem";
-			this.autoPilotONToolStripMenuItem.Size = new System.Drawing.Size(112, 22);
+			this.autoPilotONToolStripMenuItem.Size = new System.Drawing.Size(180, 22);
 			this.autoPilotONToolStripMenuItem.Text = "Bot On";
 			this.autoPilotONToolStripMenuItem.Click += new System.EventHandler(this.autoPilotONToolStripMenuItem_Click);
 			// 
@@ -199,7 +190,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
 			this.dataGridView1.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
 			this.dataGridView1.Location = new System.Drawing.Point(8, 23);
-			this.dataGridView1.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+			this.dataGridView1.Margin = new System.Windows.Forms.Padding(2);
 			this.dataGridView1.Name = "dataGridView1";
 			this.dataGridView1.RowHeadersWidth = 62;
 			this.dataGridView1.RowTemplate.Height = 20;
@@ -226,7 +217,7 @@
 			this.Controls.Add(this.menuStrip1);
 			this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
 			this.MainMenuStrip = this.menuStrip1;
-			this.Margin = new System.Windows.Forms.Padding(2, 2, 2, 2);
+			this.Margin = new System.Windows.Forms.Padding(2);
 			this.Name = "Home";
 			this.Text = "NHB3";
 			this.menuStrip1.ResumeLayout(false);
@@ -249,7 +240,6 @@
         private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabel1;
         private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabel2;
         private System.Windows.Forms.ToolStripMenuItem refreshToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem balanceToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem ordersToolStripMenuItem;
         private System.Windows.Forms.DataGridView dataGridView1;
         private System.Windows.Forms.ToolStripMenuItem newOrderToolStripMenuItem;

@@ -25,6 +25,8 @@ namespace NHB3
 
 		private bool _settingsError;
 
+		private string _currency = "TBTC";
+
 		public Processor(ApiConnect ac, BotSettings botSettings, JArray orders, string botId)
 		{
 			_ac = ac ?? throw new ArgumentNullException(nameof(ac));
@@ -79,6 +81,11 @@ namespace NHB3
 				var priceDownStep = (float)Math.Round(Convert.ToDouble(jAlgorithm["priceDownStep"].ToString(), new CultureInfo("en-US")), 4);
 				this.DownStepByAlgoritm.Add(algorithmName, priceDownStep);
 			}
+
+			var acSettings = _ac.readSettings();
+			if (acSettings.Enviorment == 1)
+				_currency = "BTC";
+			_ac.currency = _currency;
 		}
 
 		private void ValidateSettings()
@@ -130,6 +137,13 @@ namespace NHB3
 			if (_settingsError)
 			{
 				this.WarnConsole("Ошибка настроек, логика не будет запущена. Исправьте ошибки и перезапустите бот", true);
+				return;
+			}
+
+			var balance = this.GetBalance();
+			if (_botSettings.MinBalanceToRunBot > balance)
+			{
+				this.WarnConsole($"Баланс аккаунта ({balance}) меньше настройки {nameof(_botSettings.MinBalanceToRunBot)} ({_botSettings.MinBalanceToRunBot})", true);
 				return;
 			}
 
@@ -227,22 +241,6 @@ namespace NHB3
 					var newMainOrder = GetNewMainOrder(jsonPrice, processedOrderIds, algoKey, totalLimit, currentMarketSettings, myAlgMarketOrders, bookAlgMarketOrders, targetOrder);
 					if (newMainOrder == null)
 						continue;
-
-					//if (newMainOrder == null)
-					//	newMainOrder = this.GetNextFreeOrder(algoKey, myAlgMarketOrders, targetPrice, currentMarketSettings.MaxLimitSpeed, totalLimit, currentMarketSettings, bookAlgMarketOrders, targetOrder.Price);
-					//if (newMainOrder == null)
-					//{
-					//	this.WarnConsole($"\t[{algoKey}]\tНе найден подходящий ордер с ценой ниже цены JSON. Понижение скорости и цены всем ордерам с ценой выше {targetPrice}");
-					//	var uppers = myAlgMarketOrders.Where(x => x.Price > targetPrice).ToList();
-
-					//	uppers.ForEach(x =>
-					//	{
-					//		var price = x.Price + this.DownStepByAlgoritm[x.AlgorithmName];
-					//		var limit = this.MinLimitByAlgoritm[x.AlgorithmName];
-					//		this.UpdateOrder(x, price, limit);
-					//	});
-					//	continue;
-					//}
 
 					Console.WriteLine($"\t[{algoKey}]\tНаш текущий главный ордер имеет Id {newMainOrder.Id}");
 					processedOrderIds.Add(newMainOrder.Id);
@@ -866,6 +864,20 @@ namespace NHB3
 			}
 		}
 
+		private float GetBalance()
+		{
+			var result = 0.0f;
+			if (_ac.connected)
+			{
+				JObject balance = _ac.getBalance(_currency);
+				if (balance != null)
+				{
+					result = float.Parse(balance["available"].ToString(), CultureInfo.InvariantCulture);
+				}
+			}
+			return result;
+		}
+
 		private float NormalizeFloat(float value, int decimals = 4)
 		{
 			return (float)Math.Round(Convert.ToDouble(value, new CultureInfo("en-US")), decimals);
@@ -889,5 +901,6 @@ namespace NHB3
 			int intDiff = Math.Abs(aInt - bInt);
 			return intDiff <= (1 << maxDeltaBits);
 		}
+
 	}
 }
