@@ -27,6 +27,8 @@ namespace NHB3
 
 		private string _currency = "TBTC";
 
+		private List<Pool> _myPools = new List<Pool>();
+
 		public Processor(ApiConnect ac, BotSettings botSettings, JArray orders, string botId)
 		{
 			_ac = ac ?? throw new ArgumentNullException(nameof(ac));
@@ -86,6 +88,8 @@ namespace NHB3
 			if (acSettings.Enviorment == 1)
 				_currency = "BTC";
 			_ac.currency = _currency;
+			_ac.getPools(true, _botSettings.AlgorithmName);
+			_myPools = this.GetPools();
 		}
 
 		private void ValidateSettings()
@@ -299,6 +303,8 @@ namespace NHB3
 						currentMarketSettings.LowerOrdersSlowedDown = false;
 					}
 					this.ProcessUpperOrder(processedOrderIds, algoKey, myAlgMarketOrders, newMainOrder.Price);
+
+					this.CheckEmptyOrders(marketKey, currentMarketSettings);
 				}
 			}
 
@@ -311,6 +317,81 @@ namespace NHB3
 
 			Console.WriteLine("\n***Окончание цикла***\n");
 			this.CycleIsActive = false;
+		}
+
+		private void CheckEmptyOrders(string marketName, BotMarketSettings marketSettings)
+		{
+			Console.WriteLine("Проверка пустых оредров");
+			var emptyOrderSettings = marketSettings.EmptyOrderSettings;
+
+			this.RefreshOrders();
+			var currentOrders = this.GetMyOrders().Where(x => x.MarketName == marketName).ToList();
+
+			var alg = _ac.algorithms.FirstOrDefault(x => x["algorithm"].ToString() == _botSettings.AlgorithmName);
+			var minPrice = float.Parse(alg["minimalOrderAmount"].ToString(), CultureInfo.InvariantCulture);
+			var minLimit = this.MinLimitByAlgoritm[_botSettings.AlgorithmName];
+			var minAmount = minPrice;
+
+			if (emptyOrderSettings.Price != 0)
+				minPrice = emptyOrderSettings.Price;
+			if (emptyOrderSettings.Limit != 0)
+				minLimit = emptyOrderSettings.Limit;
+			if (emptyOrderSettings.Amount != 0)
+				minAmount = emptyOrderSettings.Amount;
+
+			var currentEmptyOrders = currentOrders.Where(x => CompareFloats(x.Price, minPrice, 4) && CompareFloats(x.Limit, minLimit, 4)).ToList();
+			var delta = emptyOrderSettings.Quantity - currentEmptyOrders.Count;
+
+			Console.WriteLine($"Текущие пустые ордера: {currentEmptyOrders.Count}. Настройка {nameof(emptyOrderSettings.Quantity)}: {emptyOrderSettings.Quantity}. Разница: {delta}");
+
+			if (delta > 0)
+			{
+				if (emptyOrderSettings.PoolNameOrders)
+				{
+					var targetPoolName = emptyOrderSettings.PoolNameOrdersStart;
+					var targetPool = _myPools.OrderBy(x => int.Parse(x.Name)).FirstOrDefault(x => int.Parse(x.Name) >= targetPoolName);
+					Console.WriteLine($"{nameof(emptyOrderSettings.PoolNameOrders)} - false, новые ордера будут созданы в пуле {targetPool.Name}");
+					for (var i = 0; i < delta; i++)
+					{
+						_ac.createOrder(_botSettings.AlgorithmName,
+							marketName,
+							"STANDARD",
+							targetPool.Id.ToString(),
+							minPrice.ToString(new CultureInfo("en-US")),
+							minLimit.ToString(new CultureInfo("en-US")),
+							minAmount.ToString(new CultureInfo("en-US")));
+					}
+				}
+				else
+				{
+					var currentPools = currentOrders.Select(x => x.PoolName).ToList();
+					var freePools = _myPools.Where(x => !currentPools.Contains(x.Name)).OrderBy(x => int.Parse(x.Name));
+
+					var targetPoolNames = Enumerable.Range(emptyOrderSettings.PoolNameOrdersStart, emptyOrderSettings.PoolNameOrdersEnd);
+					var targetPools = freePools.Where(x => targetPoolNames.Contains(int.Parse(x.Name))).OrderBy(x => int.Parse(x.Name)).ToList();
+
+					Console.WriteLine($"{nameof(emptyOrderSettings.PoolNameOrders)} - true");
+
+					for (var i = 0; i < delta; i++)
+					{
+						var pool = targetPools.FirstOrDefault();
+						if (pool == null)
+						{
+							this.WarnConsole("Не осталось свободных пулов");
+							return;
+						}
+
+						_ac.createOrder(_botSettings.AlgorithmName,
+							marketName,
+							"STANDARD",
+							pool.Id.ToString(),
+							minPrice.ToString(new CultureInfo("en-US")),
+							minLimit.ToString(new CultureInfo("en-US")),
+							minAmount.ToString(new CultureInfo("en-US")));
+						targetPools.Remove(pool);
+					}
+				}
+			}
 		}
 
 		private bool CheckBalance(List<Order> myOrders)
@@ -640,32 +721,32 @@ namespace NHB3
 		{
 			var allBookOrders = new List<BookOrder>();
 
-				//var algorithmName = jAlgorithm["algorithm"].ToString();
-				//if (algorithmName.ToLowerInvariant() != _botSettings.AlgorithmName.ToLowerInvariant()) continue;
+			//var algorithmName = jAlgorithm["algorithm"].ToString();
+			//if (algorithmName.ToLowerInvariant() != _botSettings.AlgorithmName.ToLowerInvariant()) continue;
 
-				var jOrders = _ac.getOrderBookWebRequest(_botSettings.AlgorithmName);
+			var jOrders = _ac.getOrderBookWebRequest(_botSettings.AlgorithmName);
 
-				var jStats = jOrders["stats"];
+			var jStats = jOrders["stats"];
 
-				foreach (var marketName in marketNames)
+			foreach (var marketName in marketNames)
+			{
+				if (!myMarketNames.Contains(marketName)) continue;
+
+				var jMarketOrders = jStats[marketName]?["orders"];
+
+				var totalSpeed = jStats[marketName]?["totalSpeed"].ToString();
+				var key = $"{_botSettings.AlgorithmName}.{marketName}";
+				if (totalSpeed != null && !this.TotalSpeedByMarket.ContainsKey(key))
+					this.TotalSpeedByMarket.Add(key, 0);
+				this.TotalSpeedByMarket[key] = (float)Math.Round(Convert.ToDouble(totalSpeed, new CultureInfo("en-US")), 4);
+
+				if (jMarketOrders != null)
 				{
-					if (!myMarketNames.Contains(marketName)) continue;
-
-					var jMarketOrders = jStats[marketName]?["orders"];
-
-					var totalSpeed = jStats[marketName]?["totalSpeed"].ToString();
-					var key = $"{_botSettings.AlgorithmName}.{marketName}";
-					if (totalSpeed != null && !this.TotalSpeedByMarket.ContainsKey(key))
-						this.TotalSpeedByMarket.Add(key, 0);
-					this.TotalSpeedByMarket[key] = (float)Math.Round(Convert.ToDouble(totalSpeed, new CultureInfo("en-US")), 4);
-
-					if (jMarketOrders != null)
-					{
-						var marketBookOrders = JsonConvert.DeserializeObject<List<BookOrder>>(jMarketOrders.ToString());
-						marketBookOrders.ForEach(x => { x.MarketName = marketName; x.AlgorithmName = _botSettings.AlgorithmName; });
-						allBookOrders.AddRange(marketBookOrders);
-					}
+					var marketBookOrders = JsonConvert.DeserializeObject<List<BookOrder>>(jMarketOrders.ToString());
+					marketBookOrders.ForEach(x => { x.MarketName = marketName; x.AlgorithmName = _botSettings.AlgorithmName; });
+					allBookOrders.AddRange(marketBookOrders);
 				}
+			}
 			return allBookOrders.Where(x => x.Alive).ToList();
 		}
 
@@ -737,7 +818,7 @@ namespace NHB3
 
 				myOrders.ForEach(order =>
 				{
-					var ok = ( (order.PayedAmount > _botSettings.RefillPayedAmountLimit) && ((order.AvailableAmount - order.PayedAmount) < _botSettings.RefillOrderLimit));
+					var ok = ((order.PayedAmount > _botSettings.RefillPayedAmountLimit) && ((order.AvailableAmount - order.PayedAmount) < _botSettings.RefillOrderLimit));
 					if (ok)
 						_ac.refillOrder(order.Id, _botSettings.RefillOrderAmount.ToString(new CultureInfo("en-US")));
 				});
@@ -916,5 +997,18 @@ namespace NHB3
 			return intDiff <= (1 << maxDeltaBits);
 		}
 
+		private List<Pool> GetPools()
+		{
+			var list = new List<Pool>();
+			foreach (var jPool in _ac.pools)
+			{
+				list.Add(new Pool
+				{
+					Id = Guid.Parse(jPool["id"].ToString()),
+					Name = jPool["name"].ToString()
+				});
+			}
+			return list;
+		}
 	}
 }

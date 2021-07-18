@@ -130,6 +130,7 @@
     <Compile Include="Types\BotSettings.cs" />
     <Compile Include="Types\Orders.cs" />
     <Compile Include="Types\MyOrderMetadata.cs" />
+    <Compile Include="Types\Pool.cs" />
     <EmbeddedResource Include="ApiForm.resx">
       <DependentUpon>ApiForm.cs</DependentUpon>
     </EmbeddedResource>

@@ -1,4 +1,6 @@
-﻿namespace NHB3.Types
+﻿using System;
+
+namespace NHB3.Types
 {
 	public abstract class OrderBase
 	{
@@ -24,5 +26,7 @@
 		public float AcceptedCurrentSpeed { get; set; }
 		public float AvailableAmount { get; set; }
 		public float PayedAmount { get; set; }
+		public Guid PoolId { get; set; }
+		public string PoolName { get; set; }
 	}
 }

@@ -82,10 +82,14 @@ namespace NHB3
             return null;
         }
 
-        public JArray getPools(bool force) {
+        public JArray getPools(bool force, string algoName = "") {
             if (force)
             {
-                string poolsResponse = api.get("/main/api/v2/pools?size=1000", true);
+                var query = "?size=1000";
+                if (!string.IsNullOrEmpty(algoName))
+                    query += $"&algorithm={algoName}";
+
+                string poolsResponse = api.get($"/main/api/v2/pools{query}", true);
                 JObject poolsObject = JsonConvert.DeserializeObject<JObject>(poolsResponse);
 
                 if (poolsObject["error_id"] == null)

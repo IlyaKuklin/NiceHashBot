@@ -49,13 +49,14 @@ namespace NHB3
 				_ac.currency = _currency;
 
 				refreshOrders(false);
-				_ac.getPools(true);
 
 				var fileName = Path.Combine(Directory.GetCurrentDirectory(), "bot.json");
 				if (!File.Exists(fileName))
 					return;
 
 				_botSettings = JsonConvert.DeserializeObject<BotSettings>(File.ReadAllText(fileName));
+				
+
 				_processor = new Processor(_ac, _botSettings, _orders, _botId);
 
 				_timer = new Timer(

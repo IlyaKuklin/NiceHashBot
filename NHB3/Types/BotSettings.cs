@@ -69,6 +69,8 @@ namespace NHB3.Types
 
 		public RivalOrderDetectionSettings RivalOrderDetectionSettings { get; set; }
 
+		public EmptyOrderSettings EmptyOrderSettings { get; set; }
+
 		[JsonIgnore]
 		internal bool LowerOrdersSlowedDown { get; set; }
 	}
@@ -104,5 +106,16 @@ namespace NHB3.Types
 		public bool On { get; set; }
 		public float MinLimit { get; set; }
 		public float MaxLimit { get; set; }
+	}
+
+	public class EmptyOrderSettings
+	{
+		public int Quantity { get; set; }
+		public bool PoolNameOrders { get; set; }
+		public int PoolNameOrdersStart { get; set; }
+		public int PoolNameOrdersEnd { get; set; }
+		public int Amount { get; set; }
+		public float Limit { get; set; }
+		public float Price { get; set; }
 	}
 }
