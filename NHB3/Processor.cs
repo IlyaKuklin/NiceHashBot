@@ -15,7 +15,8 @@ namespace NHB3
 	{
 		private long _iteration = 1;
 		private readonly List<string> _marketNames;
-		private long lastRunStamp;
+		private long lastRefillRunStamp;
+		private long lastBalanceCheckRunStamp;
 
 		private readonly ApiConnect _ac;
 		private readonly BotSettings _botSettings;
@@ -397,25 +398,34 @@ namespace NHB3
 
 		private bool CheckBalance(List<Order> myOrders)
 		{
-			var balance = this.GetBalance();
-			if (_botSettings.MinBalanceToRunBot > balance)
+			Console.WriteLine("Проверка баланса");
+			var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
+			if (_iteration == 1)
+				lastBalanceCheckRunStamp = currentTimeStamp;
+			if ((currentTimeStamp - lastBalanceCheckRunStamp) >= _botSettings.MinBalanceCheckInterval)
 			{
-				this.WarnConsole($"Баланс аккаунта ({balance}) меньше настройки {nameof(_botSettings.MinBalanceToRunBot)} ({_botSettings.MinBalanceToRunBot}). Отправка команды на снижение цены и скорости", true);
-				myOrders.ForEach(x =>
+				var balance = this.GetBalance();
+				if (_botSettings.MinBalanceToRunBot > balance)
 				{
-					if (x.Price > this.DownStepByAlgoritm[x.AlgorithmName])
+					this.WarnConsole($"Баланс аккаунта ({balance}) меньше настройки {nameof(_botSettings.MinBalanceToRunBot)} ({_botSettings.MinBalanceToRunBot}). Отправка команды на снижение цены и скорости", true);
+					myOrders.ForEach(x =>
 					{
-						this.SetLimit(x, this.MinLimitByAlgoritm[x.AlgorithmName]);
-					}
-					else
-					{
-						var price = x.Price + this.DownStepByAlgoritm[x.AlgorithmName];
-						var limit = this.MinLimitByAlgoritm[x.AlgorithmName];
-						this.UpdateOrder(x, price, limit);
-					}
-				});
-				this.WarnConsole("Работа завершена", true);
-				return false;
+						if (x.Price > this.DownStepByAlgoritm[x.AlgorithmName])
+						{
+							this.SetLimit(x, this.MinLimitByAlgoritm[x.AlgorithmName]);
+						}
+						else
+						{
+							var price = x.Price + this.DownStepByAlgoritm[x.AlgorithmName];
+							var limit = this.MinLimitByAlgoritm[x.AlgorithmName];
+							this.UpdateOrder(x, price, limit);
+						}
+					});
+					this.WarnConsole("Работа завершена", true);
+					lastBalanceCheckRunStamp = currentTimeStamp;
+					return false;
+				}
+				lastBalanceCheckRunStamp = currentTimeStamp;
 			}
 			return true;
 		}
@@ -576,10 +586,13 @@ namespace NHB3
 				}
 				else
 				{
+					var price = this.NormalizeFloat(order.Price, 4);
+					order.Price = price;
 					var allocationSettings = currentMarketSettings.AllocationSettings;
 					if (order.Limit != allocationSettings.OtherOrdersLimitSettings)
 						updated = this.SetLimit(order, allocationSettings.OtherOrdersLimitSettings);
-					this.SetPrice(updated, updated.Price + this.DownStepByAlgoritm[updated.AlgorithmName]);
+
+					this.SetPrice(updated, this.NormalizeFloat(updated.Price + this.DownStepByAlgoritm[updated.AlgorithmName], 4));
 				}
 			});
 		}
@@ -669,11 +682,11 @@ namespace NHB3
 					this.OrdersMetadataList.Add(metadata);
 				}
 				var difference = currentTimeStamp - metadata.LastPriceDecreasedTime;
-				if (difference > 605)
+				if (difference > 615)
 				{
-					order = _ac.updateOrder(order.AlgorithmName, order.Id, price.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
+					var updated = _ac.updateOrder(order.AlgorithmName, order.Id, price.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
 					metadata.LastPriceDecreasedTime = currentTimeStamp;
-					return order ?? this.SetLimit(order, limit);
+					return updated ?? this.SetLimit(order, limit);
 				}
 				else
 					return this.SetLimit(order, limit);
@@ -818,9 +831,9 @@ namespace NHB3
 			var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
 
 			if (_iteration == 1)
-				lastRunStamp = currentTimeStamp;
+				lastRefillRunStamp = currentTimeStamp;
 
-			if ((currentTimeStamp - lastRunStamp) >= _botSettings.RunRefillDelay)
+			if ((currentTimeStamp - lastRefillRunStamp) >= _botSettings.RunRefillDelay)
 			{
 				Console.WriteLine("\nRefill orders start");
 
@@ -831,7 +844,7 @@ namespace NHB3
 						_ac.refillOrder(order.Id, _botSettings.RefillOrderAmount.ToString(new CultureInfo("en-US")));
 				});
 				Console.WriteLine("Refill orders end\n");
-				lastRunStamp = currentTimeStamp;
+				lastRefillRunStamp = currentTimeStamp;
 			}
 		}
 
@@ -969,7 +982,7 @@ namespace NHB3
 
 		private float GetBalance()
 		{
-			var result = 0.0f;
+			var result = float.MinValue;
 			if (_ac.connected)
 			{
 				JObject balance = _ac.getBalance(_currency);
@@ -977,6 +990,10 @@ namespace NHB3
 				{
 					result = float.Parse(balance["available"].ToString(), CultureInfo.InvariantCulture);
 				}
+			}
+			if (result == float.MinValue)
+			{
+				this.WarnConsole("Не удалось получить баланс аккаунта по API");
 			}
 			return result;
 		}

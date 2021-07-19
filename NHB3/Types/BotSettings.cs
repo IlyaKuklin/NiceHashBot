@@ -47,6 +47,8 @@ namespace NHB3.Types
 		/// Минимальный баланс, при котором отрабатывает логика бота.
 		/// </summary>
 		public float MinBalanceToRunBot { get; set; }
+
+		public int MinBalanceCheckInterval { get; set; }
 	}
 
 	public class BotMarketSettings
