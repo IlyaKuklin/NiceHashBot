@@ -325,7 +325,8 @@ namespace NHB3
 			var emptyOrderSettings = marketSettings.EmptyOrderSettings;
 
 			this.RefreshOrders();
-			var currentOrders = this.GetMyOrders().Where(x => x.MarketName == marketName).ToList();
+			var allCurrentOrders = this.GetMyOrders();
+			var currentMarketOrders = allCurrentOrders.Where(x => x.MarketName == marketName).ToList();
 
 			var alg = _ac.algorithms.FirstOrDefault(x => x["algorithm"].ToString() == _botSettings.AlgorithmName);
 			var minPrice = float.Parse(alg["minimalOrderAmount"].ToString(), CultureInfo.InvariantCulture);
@@ -339,14 +340,14 @@ namespace NHB3
 			if (emptyOrderSettings.Amount != 0)
 				minAmount = emptyOrderSettings.Amount;
 
-			var currentEmptyOrders = currentOrders.Where(x => CompareFloats(x.Price, minPrice, 4) && CompareFloats(x.Limit, minLimit, 4)).ToList();
+			var currentEmptyOrders = currentMarketOrders.Where(x => CompareFloats(x.Price, minPrice, 4)).ToList();
 			var delta = emptyOrderSettings.Quantity - currentEmptyOrders.Count;
 
 			Console.WriteLine($"Текущие пустые ордера: {currentEmptyOrders.Count}. Настройка {nameof(emptyOrderSettings.Quantity)}: {emptyOrderSettings.Quantity}. Разница: {delta}");
 
 			if (delta > 0)
 			{
-				if (emptyOrderSettings.PoolNameOrders)
+				if (!emptyOrderSettings.PoolNameOrders)
 				{
 					var targetPoolName = emptyOrderSettings.PoolNameOrdersStart;
 					var targetPool = _myPools.OrderBy(x => int.Parse(x.Name)).FirstOrDefault(x => int.Parse(x.Name) >= targetPoolName);
@@ -364,7 +365,7 @@ namespace NHB3
 				}
 				else
 				{
-					var currentPools = currentOrders.Select(x => x.PoolName).ToList();
+					var currentPools = allCurrentOrders.Select(x => x.PoolName).ToList();
 					var freePools = _myPools.Where(x => !currentPools.Contains(x.Name)).OrderBy(x => int.Parse(x.Name));
 
 					var targetPoolNames = Enumerable.Range(emptyOrderSettings.PoolNameOrdersStart, emptyOrderSettings.PoolNameOrdersEnd);
@@ -402,9 +403,16 @@ namespace NHB3
 				this.WarnConsole($"Баланс аккаунта ({balance}) меньше настройки {nameof(_botSettings.MinBalanceToRunBot)} ({_botSettings.MinBalanceToRunBot}). Отправка команды на снижение цены и скорости", true);
 				myOrders.ForEach(x =>
 				{
-					var price = x.Price + this.DownStepByAlgoritm[x.AlgorithmName];
-					var limit = this.MinLimitByAlgoritm[x.AlgorithmName];
-					this.UpdateOrder(x, price, limit);
+					if (x.Price > this.DownStepByAlgoritm[x.AlgorithmName])
+					{
+						this.SetLimit(x, this.MinLimitByAlgoritm[x.AlgorithmName]);
+					}
+					else
+					{
+						var price = x.Price + this.DownStepByAlgoritm[x.AlgorithmName];
+						var limit = this.MinLimitByAlgoritm[x.AlgorithmName];
+						this.UpdateOrder(x, price, limit);
+					}
 				});
 				this.WarnConsole("Работа завершена", true);
 				return false;
