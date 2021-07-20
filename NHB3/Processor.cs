@@ -401,35 +401,38 @@ namespace NHB3
 		private void CheckBalance(List<Order> myOrders)
 		{
 			var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
-			if (_iteration == 1)
-				lastBalanceCheckRunStamp = currentTimeStamp;
 			if ((currentTimeStamp - lastBalanceCheckRunStamp) >= _botSettings.MinBalanceCheckInterval)
 			{
 				Console.WriteLine("Проверка баланса");
 				var balance = this.GetBalance();
 				if (_botSettings.MinBalanceToRunBot > balance)
 				{
+					var alg = _ac.algorithms.FirstOrDefault(x => x["algorithm"].ToString() == _botSettings.AlgorithmName);
+					var minPrice = float.Parse(alg["minimalOrderAmount"].ToString(), CultureInfo.InvariantCulture);
+
 					this.WarnConsole($"Баланс аккаунта ({balance}) меньше настройки {nameof(_botSettings.MinBalanceToRunBot)} ({_botSettings.MinBalanceToRunBot}). Отправка команды на снижение цены и скорости", true);
 					myOrders.ForEach(x =>
 					{
-						if (x.Price > this.DownStepByAlgoritm[x.AlgorithmName])
+						if (x.Price == minPrice || x.Price + this.DownStepByAlgoritm[x.AlgorithmName] < minPrice)
 						{
 							this.SetLimit(x, this.MinLimitByAlgoritm[x.AlgorithmName]);
 						}
 						else
 						{
+
 							var price = x.Price + this.DownStepByAlgoritm[x.AlgorithmName];
 							var limit = this.MinLimitByAlgoritm[x.AlgorithmName];
 							this.UpdateOrder(x, price, limit);
 						}
 					});
 					this.WarnConsole("Работа завершена", true);
+					this.CycleIsActive = false;
 					lastBalanceCheckRunStamp = currentTimeStamp;
 					_balanceCheckPassed = false;
 				}
 				else
 				{
-					Console.WriteLine($"Баланс аккаунта ({balance}) меньше настройки {nameof(_botSettings.MinBalanceToRunBot)} ({_botSettings.MinBalanceToRunBot}). Продолжение работы.");
+					Console.WriteLine($"Баланс аккаунта ({balance}) больше настройки {nameof(_botSettings.MinBalanceToRunBot)} ({_botSettings.MinBalanceToRunBot}). Продолжение работы.");
 					_balanceCheckPassed = true;
 				}
 
