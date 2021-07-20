@@ -48,6 +48,7 @@ namespace NHB3
 			var metadataFileName = Path.Combine(Directory.GetCurrentDirectory(), "ordersList.json");
 			this.OrdersMetadataList = JsonConvert.DeserializeObject<List<MyOrderMetadata>>(File.ReadAllText(metadataFileName));
 
+			this.RefreshOrders();
 			var myOrders = this.GetMyOrders();
 			var cancelledOrderIds = new List<string>();
 			foreach (var metadata in this.OrdersMetadataList)
@@ -313,7 +314,6 @@ namespace NHB3
 			}
 
 			this.RunRefillLogic(myOrders);
-
 			this.CheckOrdersForCancellation(jsonPrice);
 
 			_iteration++;
