@@ -133,6 +133,8 @@ namespace NHB3
 		private Dictionary<string, string> MainOrdersByAlgoMarket { get; set; } = new Dictionary<string, string>();
 		private Dictionary<string, long> LowerOrdersNextIterationRunByAlgoMarket { get; set; } = new Dictionary<string, long>();
 
+		private bool _balanceCheckPassed = true;
+
 		internal void RunBot()
 		{
 			// START
@@ -152,8 +154,8 @@ namespace NHB3
 			this.RefreshOrders();
 
 			var myOrders = this.GetMyOrders();
-			var balanceCheckResult = CheckBalance(myOrders);
-			if (!balanceCheckResult) return;
+			CheckBalance(myOrders);
+			if (!_balanceCheckPassed) return;
 
 			var myMarketNames = myOrders.Select(x => x.MarketName).Distinct().ToList();
 			var myOrderIds = myOrders.Select(x => x.Id).ToList();
@@ -396,14 +398,14 @@ namespace NHB3
 			}
 		}
 
-		private bool CheckBalance(List<Order> myOrders)
+		private void CheckBalance(List<Order> myOrders)
 		{
-			Console.WriteLine("Проверка баланса");
 			var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
 			if (_iteration == 1)
 				lastBalanceCheckRunStamp = currentTimeStamp;
 			if ((currentTimeStamp - lastBalanceCheckRunStamp) >= _botSettings.MinBalanceCheckInterval)
 			{
+				Console.WriteLine("Проверка баланса");
 				var balance = this.GetBalance();
 				if (_botSettings.MinBalanceToRunBot > balance)
 				{
@@ -423,11 +425,16 @@ namespace NHB3
 					});
 					this.WarnConsole("Работа завершена", true);
 					lastBalanceCheckRunStamp = currentTimeStamp;
-					return false;
+					_balanceCheckPassed = false;
 				}
+				else
+				{
+					Console.WriteLine($"Баланс аккаунта ({balance}) меньше настройки {nameof(_botSettings.MinBalanceToRunBot)} ({_botSettings.MinBalanceToRunBot}). Продолжение работы.");
+					_balanceCheckPassed = true;
+				}
+
 				lastBalanceCheckRunStamp = currentTimeStamp;
 			}
-			return true;
 		}
 
 		private Order GetNewMainOrder(float jsonPrice, List<string> processedOrderIds, string algoKey, float totalLimit, BotMarketSettings currentMarketSettings, List<Order> myAlgMarketOrders, List<BookOrder> bookAlgMarketOrders, BookOrder targetOrder)
