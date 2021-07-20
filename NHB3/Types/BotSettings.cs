@@ -39,6 +39,8 @@ namespace NHB3.Types
 
 		public float JsonPrice { get; set; }
 
+		public OrderCancellationSettings CancellationSettings { get; set; }
+
 		public List<BotMarketSettings> MarketSettings { get; set; }
 
 		public bool AllocationSettingsOn { get; set; }
@@ -49,6 +51,14 @@ namespace NHB3.Types
 		public float MinBalanceToRunBot { get; set; }
 
 		public int MinBalanceCheckInterval { get; set; }
+	}
+
+	public class OrderCancellationSettings
+	{
+		public bool On { get; set; }
+		public int Interval { get; set; }
+		public float AcceptedCurrentSpeedThreshold { get; set; }
+		public float JsonPriceExcessThreshold { get; set; }
 	}
 
 	public class BotMarketSettings

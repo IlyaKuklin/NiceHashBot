@@ -17,6 +17,7 @@ namespace NHB3
 		private readonly List<string> _marketNames;
 		private long lastRefillRunStamp;
 		private long lastBalanceCheckRunStamp;
+		private long lastCancellationRunStamp;
 
 		private readonly ApiConnect _ac;
 		private readonly BotSettings _botSettings;
@@ -313,6 +314,8 @@ namespace NHB3
 
 			this.RunRefillLogic(myOrders);
 
+			this.CheckOrdersForCancellation(jsonPrice);
+
 			_iteration++;
 
 			var metadataFileName = Path.Combine(Directory.GetCurrentDirectory(), "ordersList.json");
@@ -437,6 +440,30 @@ namespace NHB3
 				}
 
 				lastBalanceCheckRunStamp = currentTimeStamp;
+			}
+		}
+
+		private void CheckOrdersForCancellation(float jsonPrice)
+		{
+			if (!_botSettings.CancellationSettings.On) return;
+			var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
+			if ((currentTimeStamp - lastCancellationRunStamp) >= _botSettings.CancellationSettings.Interval)
+			{
+				Console.WriteLine("Проверка ордеров с большой ценой.");
+				this.RefreshOrders();
+				var orders = this.GetMyOrders()
+					.Where(x => x.Price > jsonPrice + _botSettings.CancellationSettings.JsonPriceExcessThreshold && x.AcceptedCurrentSpeed < _botSettings.CancellationSettings.AcceptedCurrentSpeedThreshold)
+					.ToList();
+
+				Console.WriteLine($"Количество найденных ордеров с большой ценой: {orders.Count}");
+
+				orders.ForEach(x =>
+				{
+					Console.WriteLine($"Отмена ордера {x.Id}");
+					_ac.cancelOrder(x.Id);
+				});
+
+				lastCancellationRunStamp = currentTimeStamp;
 			}
 		}
 
@@ -582,6 +609,9 @@ namespace NHB3
 
 		private void ProcessLowerOrders(List<string> processedOrderIds, string algoKey, BotMarketSettings currentMarketSettings, List<Order> myAlgMarketOrders, float targetPrice)
 		{
+			var alg = _ac.algorithms.FirstOrDefault(x => x["algorithm"].ToString() == _botSettings.AlgorithmName);
+			var minPrice = float.Parse(alg["minimalOrderAmount"].ToString(), CultureInfo.InvariantCulture);
+
 			var lowerOrders = myAlgMarketOrders.Where(x => !processedOrderIds.Contains(x.Id) && x.Price <= targetPrice && x.Price > 0.0001f).ToList();
 			Console.WriteLine($"\t[{algoKey}]\tОбработка ордеров ниже главного ({lowerOrders.Count} шт)");
 			lowerOrders.ForEach(order =>
@@ -602,7 +632,11 @@ namespace NHB3
 					if (order.Limit != allocationSettings.OtherOrdersLimitSettings)
 						updated = this.SetLimit(order, allocationSettings.OtherOrdersLimitSettings);
 
-					this.SetPrice(updated, this.NormalizeFloat(updated.Price + this.DownStepByAlgoritm[updated.AlgorithmName], 4));
+					var newPrice = updated.Price + this.DownStepByAlgoritm[updated.AlgorithmName] < minPrice
+						? minPrice
+						: updated.Price + this.DownStepByAlgoritm[updated.AlgorithmName];
+
+					this.SetPrice(updated, this.NormalizeFloat(newPrice, 4));
 				}
 			});
 		}
