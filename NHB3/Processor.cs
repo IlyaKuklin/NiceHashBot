@@ -872,24 +872,28 @@ namespace NHB3
 
 		private void RunRefillLogic(List<Order> myOrders)
 		{
-			var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
+			Console.WriteLine("\nНачало логики пополнения");
 
-			if (_iteration == 1)
-				lastRefillRunStamp = currentTimeStamp;
 
-			if ((currentTimeStamp - lastRefillRunStamp) >= _botSettings.RunRefillDelay)
-			{
-				Console.WriteLine("\nRefill orders start");
 
-				myOrders.ForEach(order =>
+
+			//var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
+
+			//if (_iteration == 1)
+			//lastRefillRunStamp = currentTimeStamp;
+
+			//if ((currentTimeStamp - lastRefillRunStamp) >= _botSettings.RunRefillDelay)
+			//{
+
+			myOrders.ForEach(order =>
 				{
 					var ok = ((order.PayedAmount > _botSettings.RefillPayedAmountLimit) && ((order.AvailableAmount - order.PayedAmount) < _botSettings.RefillOrderLimit));
 					if (ok)
 						_ac.refillOrder(order.Id, _botSettings.RefillOrderAmount.ToString(new CultureInfo("en-US")));
 				});
 				Console.WriteLine("Refill orders end\n");
-				lastRefillRunStamp = currentTimeStamp;
-			}
+				//lastRefillRunStamp = currentTimeStamp;
+			//}
 		}
 
 		private void FormOrdersGroup(List<Order> orders, List<string> processedOrderIds, string algoKey, BotMarketSettings currentMarketSettings, Order mainOrder)
