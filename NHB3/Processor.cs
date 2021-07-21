@@ -68,9 +68,6 @@ namespace NHB3
 				$"jsonSettingsUrl: {_botSettings.JsonSettingsUrl}\n" +
 				$"minStepsCountToFindOrder: {_botSettings.MinStepsCountToFindOrder}\n" +
 				$"priceLimitToFindOrder: {_botSettings.PriceLimitToFindOrder}\n" +
-				$"runRefillDelay: {_botSettings.RunRefillDelay}\n" +
-				$"refillOrderLimit: {_botSettings.RefillOrderLimit}\n" +
-				$"refillOrderAmount: {_botSettings.RefillOrderAmount}\n" +
 				$"tgBotToken: {_botSettings.TgBotToken}\n" +
 				$"tgChatId: {_botSettings.TgChatId}\n" +
 				$"errorDelay: {_botSettings.ErrorDelay}"
@@ -104,12 +101,6 @@ namespace NHB3
 			if (_botSettings.RunBotDelay == 0)
 			{
 				this.WarnConsole("Значение runBotDelay не может быть меньше или равно 0", true);
-				_settingsError = true;
-			}
-
-			if (_botSettings.RunRefillDelay == 0)
-			{
-				this.WarnConsole("Значение runRefillDelay не может быть меньше или равно 0", true);
 				_settingsError = true;
 			}
 
@@ -374,8 +365,15 @@ namespace NHB3
 					var currentPools = allCurrentOrders.Select(x => x.PoolName).ToList();
 					var freePools = _myPools.Where(x => !currentPools.Contains(x.Name)).OrderBy(x => int.Parse(x.Name));
 
-					var targetPoolNames = Enumerable.Range(emptyOrderSettings.PoolNameOrdersStart, emptyOrderSettings.PoolNameOrdersEnd);
-					var targetPools = freePools.Where(x => targetPoolNames.Contains(int.Parse(x.Name))).OrderBy(x => int.Parse(x.Name)).ToList();
+					var range = new List<int>();
+					for (int i = emptyOrderSettings.PoolNameOrdersStart; i <= emptyOrderSettings.PoolNameOrdersEnd; i++)
+					{
+						range.Add(i);
+					}
+
+					//var poolsCount = emptyOrderSettings.PoolNameOrdersEnd - emptyOrderSettings.PoolNameOrdersStart + 1;
+					//var targetPoolNames = Enumerable.Range(emptyOrderSettings.PoolNameOrdersStart, poolsCount);
+					var targetPools = freePools.Where(x => range.Contains(int.Parse(x.Name))).OrderBy(x => int.Parse(x.Name)).ToList();
 
 					Console.WriteLine($"{nameof(emptyOrderSettings.PoolNameOrders)} - true");
 
@@ -422,7 +420,6 @@ namespace NHB3
 						}
 						else
 						{
-
 							var price = x.Price + this.DownStepByAlgoritm[x.AlgorithmName];
 							var limit = this.MinLimitByAlgoritm[x.AlgorithmName];
 							this.UpdateOrder(x, price, limit);
@@ -873,10 +870,44 @@ namespace NHB3
 		private void RunRefillLogic(List<Order> myOrders)
 		{
 			Console.WriteLine("\nНачало логики пополнения");
+			var settings = _botSettings.RefillSettings;
 
+			foreach (var order in myOrders)
+			{
+				if (order.AcceptedCurrentSpeed == 0) continue;
+				Console.WriteLine($"Обработка ордера {order.Id}");
 
+				var spendingPerMinute = order.Price * order.AcceptedCurrentSpeed / 1440;
+				var targetAmount = spendingPerMinute * settings.RefillOrderLimit;
+				var orderAmount = order.AvailableAmount - order.PayedAmount;
 
+				Console.WriteLine($"Ордер тратит в минуту: {spendingPerMinute}");
+				Console.WriteLine($"Умножение на {nameof(settings.RefillOrderLimit)}: {spendingPerMinute} * {settings.RefillOrderLimit} = {targetAmount}");
+				Console.WriteLine($"Баланс ордера: {orderAmount}");
 
+				if (orderAmount < targetAmount)
+				{
+					// Умножаем потребление ордера на количество минут, которое необходимо ему проработать после пополнения
+					var targetBalance = spendingPerMinute * settings.RefillOrderAmount;
+					// Отнимаем от нужного баланса текущий баланс ордера
+					targetBalance = targetBalance - orderAmount;
+					// Прибавляем к полученному значению комиссию найсхеша 3%
+					targetBalance = targetBalance * 1.03f;
+					targetBalance = this.NormalizeFloat(targetBalance, 8);
+
+					Console.WriteLine($"Сумма пополнения: {targetBalance}");
+
+					if (targetBalance < 0.001f)
+						targetBalance = 0.001f;
+
+					_ac.refillOrder(order.Id, targetBalance.ToString(new CultureInfo("en-US")));
+				}
+				else
+					Console.WriteLine("Ордер не нуждается в пополнении.");
+
+			}
+
+			Console.WriteLine("Окончание логики пополнения\n");
 			//var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
 
 			//if (_iteration == 1)
@@ -884,15 +915,13 @@ namespace NHB3
 
 			//if ((currentTimeStamp - lastRefillRunStamp) >= _botSettings.RunRefillDelay)
 			//{
-
-			myOrders.ForEach(order =>
-				{
-					var ok = ((order.PayedAmount > _botSettings.RefillPayedAmountLimit) && ((order.AvailableAmount - order.PayedAmount) < _botSettings.RefillOrderLimit));
-					if (ok)
-						_ac.refillOrder(order.Id, _botSettings.RefillOrderAmount.ToString(new CultureInfo("en-US")));
-				});
-				Console.WriteLine("Refill orders end\n");
-				//lastRefillRunStamp = currentTimeStamp;
+			//myOrders.ForEach(order =>
+			//	{
+			//		var ok = ((order.PayedAmount > _botSettings.RefillPayedAmountLimit) && ((order.AvailableAmount - order.PayedAmount) < _botSettings.RefillOrderLimit));
+			//		if (ok)
+			//			_ac.refillOrder(order.Id, _botSettings.RefillOrderAmount.ToString(new CultureInfo("en-US")));
+			//	});
+			//lastRefillRunStamp = currentTimeStamp;
 			//}
 		}
 

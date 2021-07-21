@@ -18,17 +18,6 @@ namespace NHB3.Types
 
 		public float PriceLimitToFindOrder { get; set; }
 
-		public int RunRefillDelay { get; set; }
-
-		// После какого остатка делать refill.
-		public float RefillOrderLimit { get; set; }
-
-		// Объём refill.
-		public float RefillOrderAmount { get; set; }
-
-		// С какого затраченного амаунта начинать рефилл
-		public float RefillPayedAmountLimit { get; set; }
-
 		public string TgBotToken { get; set; }
 
 		public string TgChatId { get; set; }
@@ -40,6 +29,8 @@ namespace NHB3.Types
 		public float JsonPrice { get; set; }
 
 		public OrderCancellationSettings CancellationSettings { get; set; }
+
+		public OrderRefillSettings RefillSettings { get; set; }
 
 		public List<BotMarketSettings> MarketSettings { get; set; }
 
@@ -59,6 +50,12 @@ namespace NHB3.Types
 		public int Interval { get; set; }
 		public float AcceptedCurrentSpeedThreshold { get; set; }
 		public float JsonPriceExcessThreshold { get; set; }
+	}
+
+	public class OrderRefillSettings
+	{
+		public int RefillOrderLimit { get; set; }
+		public int RefillOrderAmount { get; set; }
 	}
 
 	public class BotMarketSettings
@@ -126,7 +123,7 @@ namespace NHB3.Types
 		public bool PoolNameOrders { get; set; }
 		public int PoolNameOrdersStart { get; set; }
 		public int PoolNameOrdersEnd { get; set; }
-		public int Amount { get; set; }
+		public float Amount { get; set; }
 		public float Limit { get; set; }
 		public float Price { get; set; }
 	}
