@@ -434,6 +434,7 @@ namespace NHB3
 				{
 					Console.WriteLine($"Баланс аккаунта ({balance}) больше настройки {nameof(_botSettings.MinBalanceToRunBot)} ({_botSettings.MinBalanceToRunBot}). Продолжение работы.");
 					_balanceCheckPassed = true;
+					this.CycleIsActive = false;
 				}
 
 				lastBalanceCheckRunStamp = currentTimeStamp;

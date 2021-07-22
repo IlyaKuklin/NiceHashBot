@@ -1,23 +1,23 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Source\\NiceHashBot\\NHB_Watchdog\\NHB_Watchdog.csproj": {}
+    "E:\\Repos\\NiceHashBot\\NHB_Watchdog\\NHB_Watchdog.csproj": {}
   },
   "projects": {
-    "C:\\Source\\NiceHashBot\\NHB_Watchdog\\NHB_Watchdog.csproj": {
+    "E:\\Repos\\NiceHashBot\\NHB_Watchdog\\NHB_Watchdog.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Source\\NiceHashBot\\NHB_Watchdog\\NHB_Watchdog.csproj",
+        "projectUniqueName": "E:\\Repos\\NiceHashBot\\NHB_Watchdog\\NHB_Watchdog.csproj",
         "projectName": "NHB_Watchdog",
-        "projectPath": "C:\\Source\\NiceHashBot\\NHB_Watchdog\\NHB_Watchdog.csproj",
-        "packagesPath": "C:\\Users\\Илья Куклин\\.nuget\\packages\\",
-        "outputPath": "C:\\Source\\NiceHashBot\\NHB_Watchdog\\obj\\",
+        "projectPath": "E:\\Repos\\NiceHashBot\\NHB_Watchdog\\NHB_Watchdog.csproj",
+        "packagesPath": "C:\\Users\\guyer\\.nuget\\packages\\",
+        "outputPath": "E:\\Repos\\NiceHashBot\\NHB_Watchdog\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft\\Xamarin\\NuGet\\"
         ],
         "configFilePaths": [
-          "C:\\Users\\Илья Куклин\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\guyer\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Xamarin.Offline.config"
         ],

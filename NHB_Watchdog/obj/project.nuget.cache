@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "CB3G6FUPRxnGGhyGU0TlBmmv0rnYRfVabZGXf4s/X370/B13eaCQF7usx7ceOdtsJUb6vELAmv6VNrsPnjArkQ==",
+  "dgSpecHash": "7Ijyt8rGydqfmvPCXHlsTJqVz0PUNo52/sgI6VetAOeMHEA+Da5lCNbhi6U0YKRnF06I8lzwCGkPoqqyTGa9Mg==",
   "success": true,
-  "projectFilePath": "C:\\Source\\NiceHashBot\\NHB_Watchdog\\NHB_Watchdog.csproj",
+  "projectFilePath": "E:\\Repos\\NiceHashBot\\NHB_Watchdog\\NHB_Watchdog.csproj",
   "expectedPackageFiles": [],
   "logs": []
 }
