@@ -507,6 +507,7 @@ namespace NHB3
 				else
 				{
 					Console.WriteLine($"\t[{algoKey}]\tЦена главного ордера ниже цены конкурирующего + шаг повышения ({priceRaiseStep}). Повышение цены.");
+					targetPrice = this.NormalizeFloat(targetPrice, 4);
 					myMainOrder = _ac.updateOrder(algoKey, myMainOrder.Id, targetPrice.ToString(new CultureInfo("en-US")), mainOrderLimitSpeed.ToString(new CultureInfo("en-US")))?.Item1;
 					if (myMainOrder != null)
 					{
@@ -726,6 +727,7 @@ namespace NHB3
 				var difference = currentTimeStamp - metadata.LastPriceDecreasedTime;
 				if (difference > 615)
 				{
+					price = this.NormalizeFloat(price, 4);
 					var updated = _ac.updateOrder(order.AlgorithmName, order.Id, price.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
 					metadata.LastPriceDecreasedTime = currentTimeStamp;
 					return updated ?? this.SetLimit(order, limit);
@@ -735,6 +737,7 @@ namespace NHB3
 			}
 			else
 			{
+				price = this.NormalizeFloat(price, 4);
 				var updated = _ac.updateOrder(order.AlgorithmName, order.Id, price.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
 				return updated;
 			}
@@ -762,8 +765,9 @@ namespace NHB3
 					this.OrdersMetadataList.Add(metadata);
 				}
 				var difference = currentTimeStamp - metadata.LastPriceDecreasedTime;
-				if (difference > 605)
+				if (difference > 615)
 				{
+					price = this.NormalizeFloat(price, 4);
 					order = _ac.updateOrder(order.AlgorithmName, order.Id, price.ToString(new CultureInfo("en-US")), order.Limit.ToString(new CultureInfo("en-US")))?.Item1;
 					if (order != null)
 					{
@@ -776,6 +780,7 @@ namespace NHB3
 					return null;
 			}
 
+			price = this.NormalizeFloat(price, 4);
 			order = _ac.updateOrder(order.AlgorithmName, order.Id, price.ToString(new CultureInfo("en-US")), order.Limit.ToString(new CultureInfo("en-US")))?.Item1;
 			return order;
 		}
