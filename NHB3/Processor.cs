@@ -307,6 +307,11 @@ namespace NHB3
 			this.RunRefillLogic(myOrders);
 			this.CheckOrdersForCancellation(jsonPrice);
 
+			this.EndCycle();
+		}
+
+		private void EndCycle()
+		{
 			_iteration++;
 
 			var metadataFileName = Path.Combine(Directory.GetCurrentDirectory(), "ordersList.json");
@@ -404,8 +409,8 @@ namespace NHB3
 			var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
 			if ((currentTimeStamp - lastBalanceCheckRunStamp) >= _botSettings.MinBalanceCheckInterval)
 			{
-				Console.WriteLine("Проверка баланса");
 				var balance = this.GetBalance();
+				Console.WriteLine("Проверка баланса");
 				if (_botSettings.MinBalanceToRunBot > balance)
 				{
 					var alg = _ac.algorithms.FirstOrDefault(x => x["algorithm"].ToString() == _botSettings.AlgorithmName);
@@ -420,15 +425,14 @@ namespace NHB3
 						}
 						else
 						{
-							var price = x.Price + this.DownStepByAlgoritm[x.AlgorithmName];
+							var price = this.NormalizeFloat(x.Price + this.DownStepByAlgoritm[x.AlgorithmName], 4);
 							var limit = this.MinLimitByAlgoritm[x.AlgorithmName];
 							this.UpdateOrder(x, price, limit);
 						}
 					});
 					this.WarnConsole("Работа завершена", true);
-					this.CycleIsActive = false;
-					lastBalanceCheckRunStamp = currentTimeStamp;
 					_balanceCheckPassed = false;
+					this.EndCycle();
 				}
 				else
 				{
@@ -436,9 +440,10 @@ namespace NHB3
 					_balanceCheckPassed = true;
 					this.CycleIsActive = false;
 				}
-
 				lastBalanceCheckRunStamp = currentTimeStamp;
 			}
+			else if (!_balanceCheckPassed)
+				this.EndCycle();
 		}
 
 		private void CheckOrdersForCancellation(float jsonPrice)
