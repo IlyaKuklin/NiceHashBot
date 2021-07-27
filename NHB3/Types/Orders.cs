@@ -8,6 +8,7 @@ namespace NHB3.Types
 		public float Price { get; set; }
 		public float Limit { get; set; }
 		public bool Alive { get; set; }
+		public bool Active { get; set; }
 		public string MarketName { get; set; }
 		public string AlgorithmName { get; set; }
 		public int RigsCount { get; set; }

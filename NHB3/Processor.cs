@@ -630,8 +630,8 @@ namespace NHB3
 				}
 				else
 				{
-					var price = this.NormalizeFloat(order.Price, 4);
-					order.Price = price;
+					//var price = this.NormalizeFloat(order.Price, 4);
+					//order.Price = price;
 					var allocationSettings = currentMarketSettings.AllocationSettings;
 					if (order.Limit != allocationSettings.OtherOrdersLimitSettings)
 						updated = this.SetLimit(order, allocationSettings.OtherOrdersLimitSettings);
@@ -657,7 +657,7 @@ namespace NHB3
 				var ratio = this.NormalizeFloat(currentMarketSettings.MaxLimitSpeedPercent / 100 * totalLimit, 2);
 				var calculatedLimit = this.NormalizeFloat(ratio - upperOrdersPayingSpeedSum);
 
-				var minLimitByAlgoString = this.MinLimitByAlgoritm[algoKey].ToString();
+				var minLimitByAlgoString = this.MinLimitByAlgoritm[algoKey].ToString().Replace(",",".");
 				var parts = minLimitByAlgoString.Split('.');
 				var decimals = parts[1].Length;
 
@@ -719,8 +719,11 @@ namespace NHB3
 
 		private Order UpdateOrder(Order order, float price, float limit)
 		{
+			var alg = _ac.algorithms.FirstOrDefault(x => x["algorithm"].ToString() == _botSettings.AlgorithmName);
+			var minPrice = float.Parse(alg["minimalOrderAmount"].ToString(), CultureInfo.InvariantCulture);
+
 			var id = order.Id;
-			if (price < order.Price)
+			if (price < order.Price && price > minPrice)
 			{
 				var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
 				var metadata = this.OrdersMetadataList.FirstOrDefault(x => x.Id == id);
@@ -760,7 +763,11 @@ namespace NHB3
 		private Order SetPrice(Order order, float price)
 		{
 			var id = order.Id;
-			if (price < order.Price)
+
+			var alg = _ac.algorithms.FirstOrDefault(x => x["algorithm"].ToString() == _botSettings.AlgorithmName);
+			var minPrice = float.Parse(alg["minimalOrderAmount"].ToString(), CultureInfo.InvariantCulture);
+
+			if (price < order.Price && price > minPrice)
 			{
 				var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
 				var metadata = this.OrdersMetadataList.FirstOrDefault(x => x.Id == id);
@@ -786,7 +793,8 @@ namespace NHB3
 			}
 
 			price = this.NormalizeFloat(price, 4);
-			order = _ac.updateOrder(order.AlgorithmName, order.Id, price.ToString(new CultureInfo("en-US")), order.Limit.ToString(new CultureInfo("en-US")))?.Item1;
+			if (!CompareFloats(price, order.Price, 4))
+				order = _ac.updateOrder(order.AlgorithmName, order.Id, price.ToString(new CultureInfo("en-US")), order.Limit.ToString(new CultureInfo("en-US")))?.Item1;
 			return order;
 		}
 
@@ -833,7 +841,8 @@ namespace NHB3
 				myOrder.AlgorithmName = jOrder["algorithm"]["algorithm"].ToString();
 				myOrder.PoolId = Guid.Parse(jOrder["pool"]["id"].ToString());
 				myOrder.PoolName = jOrder["pool"]["name"].ToString();
-				if (myOrder.AlgorithmName.ToLowerInvariant() == _botSettings.AlgorithmName.ToLowerInvariant())
+				myOrder.Active = jOrder["status"]["code"].ToString() == "ACTIVE";
+				if (myOrder.AlgorithmName.ToLowerInvariant() == _botSettings.AlgorithmName.ToLowerInvariant() && myOrder.Active)
 					myOrders.Add(myOrder);
 			}
 			return myOrders.OrderByDescending(x => x.Price).ToList();
