@@ -636,11 +636,14 @@ namespace NHB3
 					if (order.Limit != allocationSettings.OtherOrdersLimitSettings)
 						updated = this.SetLimit(order, allocationSettings.OtherOrdersLimitSettings);
 
-					var newPrice = updated.Price + this.DownStepByAlgoritm[updated.AlgorithmName] < minPrice
-						? minPrice
-						: updated.Price + this.DownStepByAlgoritm[updated.AlgorithmName];
+					if (updated != null)
+					{
+						var newPrice = updated.Price + this.DownStepByAlgoritm[updated.AlgorithmName] < minPrice
+							? minPrice
+							: updated.Price + this.DownStepByAlgoritm[updated.AlgorithmName];
 
-					this.SetPrice(updated, this.NormalizeFloat(newPrice, 4));
+						this.SetPrice(updated, this.NormalizeFloat(newPrice, 4));
+					}
 				}
 			});
 		}
@@ -755,7 +758,13 @@ namespace NHB3
 		{
 			if (!CompareFloats(order.Limit, limit, 6))
 			{
+				var temp = order;
 				order = _ac.updateOrder(order.AlgorithmName, order.Id, order.Price.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
+				if (order == null)
+				{
+					Thread.Sleep(2000);
+					order = _ac.updateOrder(temp.AlgorithmName, temp.Id, temp.Price.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
+				}
 			}
 			return order;
 		}

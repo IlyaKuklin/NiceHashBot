@@ -66,7 +66,8 @@ namespace NHB3
 						{
 							toolStripStatusLabel1.Text = "Working";
 							CheckForIllegalCrossThreadCalls = false;
-							_processor.RunBot();
+							if (!_processor.CycleIsActive)
+								_processor.RunBot();
 							toolStripStatusLabel1.Text = "Idle";
 						}
 						catch (Exception ex)
