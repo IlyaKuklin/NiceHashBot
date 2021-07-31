@@ -288,6 +288,7 @@ namespace NHB3
 					if (currentMarketSettings.LowerOrdersSlowedDown && mainOrderChanged)
 					{
 						Console.WriteLine("Главный ордер изменился. Не повышать скорость ордерам ниже.");
+						_activeOrders.ForEach(x => this.UpdateOrder(x, x.Price, x.Limit));
 					}
 					else if (!needToRunLowerOrdersLogic && !lowerOrdersLogicJustRan)
 					{
@@ -303,7 +304,8 @@ namespace NHB3
 									{
 										var activeOrder = _activeOrders[i];
 										if (_iteration == 1)
-											this.SetLimit(activeOrder, 1);
+											this.UpdateOrder(activeOrder, activeOrder.Price, 1);
+											//this.SetLimit(activeOrder, 1);
 										else
 										{
 											var restOrders = _activeOrders.Skip(i).Where(x => x.RigsCount > 0);
@@ -312,7 +314,8 @@ namespace NHB3
 											var limit = delta > minLimit
 												? delta
 												: minLimit;
-											this.SetLimit(activeOrder, limit);
+											this.UpdateOrder(activeOrder, activeOrder.Price, limit);
+											//this.SetLimit(activeOrder, limit);
 										}
 									}
 									break;
@@ -517,15 +520,21 @@ namespace NHB3
 				Console.WriteLine($"\t[{algoKey}]\tНаш главный ордер имеет цену {myMainOrder.Price}");
 				if (myMainOrder.Price > targetOrder.Price && myMainOrder.Price > targetPrice)
 				{
-					Console.WriteLine($"\t[{algoKey}]\tЦена главного ордера выше цены конкурирующего. Попытка снизить цену.");
+					//Console.WriteLine($"\t[{algoKey}]\tЦена главного ордера выше цены конкурирующего. Попытка снизить цену.");
 					// Пытаемся снизить цену.
-					var updated = this.UpdateOrder(myMainOrder, targetPrice, myMainOrder.Limit);
-					if (updated != null)
+
+					if (CompareFloats(myMainOrder.Price, (targetPrice + this.DownStepByAlgoritm[myMainOrder.AlgorithmName]), 4))
 					{
-						Console.WriteLine($"\t[{algoKey}]\tЦена ордера установлена на {targetPrice}");
-						newMainOrder = updated;
-						processedOrderIds.Add(myMainOrder.Id);
+						myMainOrder.Price = targetPrice;
 					}
+
+					//var updated = this.UpdateOrder(myMainOrder, targetPrice, myMainOrder.Limit);
+					//if (updated != null)
+					//{
+					//	Console.WriteLine($"\t[{algoKey}]\tЦена ордера установлена на {targetPrice}");
+					//	newMainOrder = updated;
+					//	processedOrderIds.Add(myMainOrder.Id);
+					//}
 
 					// Не получилось снизить цену.
 					else
@@ -544,14 +553,15 @@ namespace NHB3
 				{
 					Console.WriteLine($"\t[{algoKey}]\tЦена главного ордера ниже цены конкурирующего + шаг повышения ({priceRaiseStep}). Повышение цены.");
 					targetPrice = this.NormalizeFloat(targetPrice, 4);
+					myMainOrder.Price = targetPrice;
 					//myMainOrder = _ac.updateOrder(algoKey, myMainOrder.Id, targetPrice.ToString(new CultureInfo("en-US")), mainOrderLimitSpeed.ToString(new CultureInfo("en-US")))?.Item1;
-					if (myMainOrder != null)
-					{
-						Console.WriteLine($"\t[{algoKey}]\tСкорость ордера повышена до {targetPrice}");
-						newMainOrder = myMainOrder;
-					}
-					else
-						Console.WriteLine($"\t[{algoKey}]\tОшибка при повышении цены");
+					//if (myMainOrder != null)
+					//{
+					//	Console.WriteLine($"\t[{algoKey}]\tСкорость ордера повышена до {targetPrice}");
+					//	newMainOrder = myMainOrder;
+					//}
+					//else
+					//	Console.WriteLine($"\t[{algoKey}]\tОшибка при повышении цены");
 				}
 			}
 			else
@@ -620,7 +630,8 @@ namespace NHB3
 				if (!CompareFloats(newPrice, myNextUpperOrder.Price, 4))
 				{
 					Console.WriteLine($"\t[{algoKey}]\tУстановка ордеру цены {newPrice}");
-					myNextUpperOrder = this.SetPrice(myNextUpperOrder, newPrice);
+					//myNextUpperOrder = this.SetPrice(myNextUpperOrder, newPrice);
+					myNextUpperOrder.Price = newPrice;
 				}
 				return myNextUpperOrder;
 			}
@@ -640,9 +651,9 @@ namespace NHB3
 			{
 				var price = order.Price + this.DownStepByAlgoritm[order.AlgorithmName];
 				var limit = this.MinLimitByAlgoritm[order.AlgorithmName];
-				var res = this.UpdateOrder(order, price, limit);
-				if (res == null)
-					this.SetLimit(order, limit);
+
+				if (!CompareFloats(price, order.Price, 4) || !CompareFloats(limit, order.Limit, 4))
+					this.UpdateOrder(order, price, limit);
 			});
 		}
 
@@ -740,7 +751,8 @@ namespace NHB3
 				//var mainOrderLimitSpeed = this.GetMainOrderLimit(algoKey, totalLimit, currentMarketSettings, myAlgMarketOrders, bookAlgMarketOrders, targetOrderPrice, maxLimitSpeed, myNextOrder.Id);
 
 				Console.WriteLine($"\t[{algoKey}]\tНайден ордер {myNextOrder.Id}. Устанавливаем цену {targetPrice}");
-				myNextOrder = this.SetPrice(myNextOrder, targetPrice);
+				//myNextOrder = this.SetPrice(myNextOrder, targetPrice);
+				myNextOrder.Price = targetPrice;
 				return myNextOrder;
 			}
 			else
@@ -1045,14 +1057,16 @@ namespace NHB3
 					if (!floatsEqual)
 					{
 						Console.WriteLine($"\t[{algoKey}]\tДельта с ценой предыдущего ордера выше {limitSetting.PriceStepLow}. Повышаем цену до {newPrice}");
+						updated.Price = newPrice;
+
 
 						//updated = this.UpdateOrder(order, newPrice, newLimit);
-						updated = this.SetPrice(order, newPrice);
-						if (updated == null)
-						{
-							Thread.Sleep(2500);
-							updated = this.SetPrice(order, newPrice);
-						}
+						//updated = this.SetPrice(order, newPrice);
+						//if (updated == null)
+						//{
+						//	Thread.Sleep(2500);
+						//	updated = this.SetPrice(order, newPrice);
+						//}
 					}
 				}
 				else if (delta < limitSetting.PriceStepLow)
@@ -1062,10 +1076,12 @@ namespace NHB3
 
 					if (this.NormalizeFloat(order.Price + step, 4) > desiredPrice)
 					{
-						this.SetPrice(order, order.Price + step);
+						updated.Price = order.Price + step;
+						//this.SetPrice(order, order.Price + step);
 					}
 					else
-						this.SetPrice(order, desiredPrice);
+						updated.Price = desiredPrice;
+						//this.SetPrice(order, desiredPrice);
 				}
 
 				groupOrders.Add(updated);
@@ -1108,14 +1124,15 @@ namespace NHB3
 						{
 							Console.WriteLine($"\t[{algoKey}]\tОбработка ордера с Id [{lowerOrder.Id}] и ценой [{lowerOrder.Price}]. Установка цены {newPrice}");
 
-							var updated = this.SetPrice(lowerOrder, newPrice);
-							if (updated != null)
-							{
-								groupOrders.Add(updated);
+							//var updated = this.SetPrice(lowerOrder, newPrice);
+							lowerOrder.Price = newPrice;
+							//if (updated != null)
+							//{
+								groupOrders.Add(lowerOrder);
 								//previousOrderPrice = groupOrderTargetPrice;
-							}
-							else
-								this.WarnConsole($"\t[{algoKey}]\tНе удалось обработать ордер с Id [{lowerOrder.Id}]");
+							//}
+							//else
+							//	this.WarnConsole($"\t[{algoKey}]\tНе удалось обработать ордер с Id [{lowerOrder.Id}]");
 						}
 					}
 					if (groupOrders.Count == _currentMarketSettings.OrdersSettings.Quantity - 1) break;

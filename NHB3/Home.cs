@@ -59,6 +59,8 @@ namespace NHB3
 
 				_processor = new Processor(_ac, _settings, _orders, _botId);
 
+				var run = false;
+
 				_timer = new Timer(
 					e =>
 					{
@@ -66,8 +68,17 @@ namespace NHB3
 						{
 							toolStripStatusLabel1.Text = "Working";
 							CheckForIllegalCrossThreadCalls = false;
-							if (!_processor.CycleIsActive)
+							Console.ForegroundColor = ConsoleColor.Red;
+							Console.WriteLine(e);
+							Console.ForegroundColor = ConsoleColor.White;
+
+							if (!run)
+							{
+								run = true;
 								_processor.RunBot();
+								run = false;
+							}
+
 							toolStripStatusLabel1.Text = "Idle";
 						}
 						catch (Exception ex)
@@ -76,7 +87,7 @@ namespace NHB3
 							HandleException(ex);
 						}
 					},
-					null,
+					run,
 					TimeSpan.Zero,
 					TimeSpan.FromSeconds(_settings.BotSettings.RunBotDelay));
 			}
@@ -190,7 +201,8 @@ namespace NHB3
 			_processor.SwitchState(true);
 			try
 			{
-				_processor.RunBot();
+				//if (!_processor.CycleIsActive)
+				//	_processor.RunBot();
 			}
 			catch (Exception ex)
 			{
