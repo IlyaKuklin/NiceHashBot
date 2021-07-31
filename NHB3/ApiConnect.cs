@@ -175,6 +175,7 @@ namespace NHB3
                 { "price", price },
                 { "type", type }
             };
+
             string newOrderResponse = api.post("/main/api/v2/hashpower/order", JsonConvert.SerializeObject(order), true);
             JObject orderObject = JsonConvert.DeserializeObject<JObject>(newOrderResponse);
 
@@ -182,6 +183,12 @@ namespace NHB3
             {
                 return orderObject;
             }
+
+            for(var i = 0; i < 2; i++)
+			{
+                api.post("/main/api/v2/hashpower/order", JsonConvert.SerializeObject(order), true);
+            }
+
             return new JObject();
         }
 

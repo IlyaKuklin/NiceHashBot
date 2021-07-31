@@ -1,47 +1,69 @@
 ﻿using Newtonsoft.Json;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace NHB3.Types
 {
+	public class Settings
+	{
+		public BotSettings BotSettings { get; set; }
+		public AlertSettings AlertSettings { get; set; }
+		public List<MarketSettings> MarketSettings { get; set; }
+		public OrderCancellationSettings CancellationSettings { get; set; }
+	}
+
+	public class AlertSettings
+	{
+		public string TgBotToken { get; set; }
+		public string TgChatId { get; set; }
+		public string ErrorUrlHandler { get; set; }
+	}
+
 	public class BotSettings
 	{
 		public string AlgorithmName { get; set; }
-
-		// Частота запуска логики бота (в секундах).
 		public int RunBotDelay { get; set; }
-
-		// url настроек цены.
-		public string JsonSettingsUrl { get; set; }
-
-		public int MinStepsCountToFindOrder { get; set; }
-
-		public float PriceLimitToFindOrder { get; set; }
-
-		public string TgBotToken { get; set; }
-
-		public string TgChatId { get; set; }
-
 		public int ErrorDelay { get; set; }
-
-		public string ErrorUrlHandler { get; set; }
+		public string JsonSettingsUrl { get; set; }
+		public float MinBalanceToRunBot { get; set; }
+		public int MinBalanceCheckInterval { get; set; }
 
 		public float JsonPrice { get; set; }
 
-		public OrderCancellationSettings CancellationSettings { get; set; }
+		//public int MinStepsCountToFindOrder { get; set; }
+
+		//public float JsonPrice { get; set; }
+
+
+		//public OrderRefillSettings RefillSettings { get; set; }
+
+		//public bool AllocationSettingsOn { get; set; }
+	}
+
+	public class MarketSettings
+	{
+		public string Name { get; set; }
+
+		public OrderSettings OrdersSettings { get; set; }
+		public LowerOrdersSettings LowerOrdersSettings { get; set; }
+
+		public RivalOrderDetectionSettings RivalOrderDetectionSettings { get; set; }
+
+		public EmptyOrderSettings EmptyOrderSettings { get; set; }
 
 		public OrderRefillSettings RefillSettings { get; set; }
 
-		public List<BotMarketSettings> MarketSettings { get; set; }
+		[JsonIgnore]
+		internal bool LowerOrdersSlowedDown { get; set; }
+	}
 
-		public bool AllocationSettingsOn { get; set; }
-
-		/// <summary>
-		/// Минимальный баланс, при котором отрабатывает логика бота.
-		/// </summary>
-		public float MinBalanceToRunBot { get; set; }
-
-		public int MinBalanceCheckInterval { get; set; }
+	public class OrderSettings
+	{
+		public int Quantity { get; set; } // количество рабочих ордеров
+		public string LimitFunction { get; set; } // функция, которая будет отвечать за скорость ордерам
+		public float SummaryCurrentSpeed { get; set; }
+		public float OtherOrdersLimitSettings { get; set; }
+		public float PriceLimitToFindOrder { get; set; }
+		public List<AllocationSettings> AllocationSettings { get; set; }
 	}
 
 	public class OrderCancellationSettings
@@ -58,57 +80,35 @@ namespace NHB3.Types
 		public int RefillOrderAmount { get; set; }
 	}
 
-	public class BotMarketSettings
-	{
-		public string Name { get; set; }
-
-		// Какую скорость устанавливать при перебитии ордера.
-		public float MaxLimitSpeed { get; set; }
-
-		public AllocationSettings AllocationSettings { get; set; }
-
-		public float PriceRaiseStep { get; set; }
-		public float MaxLimitSpeedPercent { get; set; }
-
-		public float LowerOrdersLimitPriceRange { get; set; }
-
-		public float LowerOrdersLimitThreshold { get; set; }
-
-		public int LowerOrdersLogicRunCycleGap { get; set; }
-
-		public RivalOrderDetectionSettings RivalOrderDetectionSettings { get; set; }
-
-		public EmptyOrderSettings EmptyOrderSettings { get; set; }
-
-		[JsonIgnore]
-		internal bool LowerOrdersSlowedDown { get; set; }
-	}
-
 	public class AllocationSettings
 	{
-		public int ProcessedOrdersCount { get; set; }
-		public float OtherOrdersLimitSettings { get; set; }
-		public List<AllocationLimitSettings> LimitSettings { get; set; }
+		public int Position { get; set; } // позиция ордера
+		public float Limit { get; set; } // для функции summaryCurrentSpeed у всех ордеров должно быть одно значение.
+		public float LimitSpeed { get; set; }
+		public bool Fight { get; set; }
+		public float PriceRaiseStep { get; set; } // на сколько перебивать чужой ордер, игнорируется, если "fight" false
+		public float PriceStepHigh { get; set; } // игнорируется для ордера с позицией 1
+		public float PriceStepLow { get; set; } // игнорируется для ордера с позицией 1
 	}
 
-	public class AllocationLimitSettings
-	{
-		public string OrdersPositions { get; set; }
-		public float MaxLimitSpeed { get; set; }
-		public float PriceStep { get; set; }
+	//public class AllocationLimitSettings
+	//{
+	//	public string OrdersPositions { get; set; }
+	//	public float MaxLimitSpeed { get; set; }
+	//	public float PriceStep { get; set; }
 
-		[JsonIgnore]
-		public List<int> OrdersPositionsList
-		{
-			get
-			{
-				var list = new List<int>();
-				var parts = this.OrdersPositions.Split(',');
-				list.AddRange(parts.Select(part => int.Parse(part)));
-				return list;
-			}
-		}
-	}
+	//	[JsonIgnore]
+	//	public List<int> OrdersPositionsList
+	//	{
+	//		get
+	//		{
+	//			var list = new List<int>();
+	//			var parts = this.OrdersPositions.Split(',');
+	//			list.AddRange(parts.Select(part => int.Parse(part)));
+	//			return list;
+	//		}
+	//	}
+	//}
 
 	public class RivalOrderDetectionSettings
 	{
@@ -126,5 +126,12 @@ namespace NHB3.Types
 		public float Amount { get; set; }
 		public float Limit { get; set; }
 		public float Price { get; set; }
+	}
+
+	public class LowerOrdersSettings
+	{
+		public float LowerOrdersLimitPriceRange { get; set; }
+		public float LowerOrdersLimitThreshold { get; set; }
+		public int LowerOrdersLogicRunCycleGap { get; set; }
 	}
 }

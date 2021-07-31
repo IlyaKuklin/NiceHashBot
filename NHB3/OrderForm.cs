@@ -170,7 +170,7 @@ namespace NHB3
             if (order["id"] != null)
             {
                 this.lblErrorCreate.Visible = false;
-                setEditMode(order);
+                //setEditMode(order);
             }
             else
             {

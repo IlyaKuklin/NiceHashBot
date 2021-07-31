@@ -20,7 +20,7 @@ namespace NHB3
 		private JArray _orders;
 		private JArray _market;
 		private readonly Timer _timer;
-		private readonly BotSettings _botSettings;
+		private readonly Settings _settings;
 		private readonly string _botId;
 
 		private readonly Processor _processor;
@@ -54,10 +54,10 @@ namespace NHB3
 				if (!File.Exists(fileName))
 					return;
 
-				_botSettings = JsonConvert.DeserializeObject<BotSettings>(File.ReadAllText(fileName));
+				_settings = JsonConvert.DeserializeObject<Settings>(File.ReadAllText(fileName));
 				
 
-				_processor = new Processor(_ac, _botSettings, _orders, _botId);
+				_processor = new Processor(_ac, _settings, _orders, _botId);
 
 				_timer = new Timer(
 					e =>
@@ -78,7 +78,7 @@ namespace NHB3
 					},
 					null,
 					TimeSpan.Zero,
-					TimeSpan.FromSeconds(_botSettings.RunBotDelay));
+					TimeSpan.FromSeconds(_settings.BotSettings.RunBotDelay));
 			}
 		}
 
@@ -254,18 +254,18 @@ namespace NHB3
 
 		private void HandleException(Exception ex)
 		{
-			var message = $"Ошибка в боте с ID ({_botId}).\n\nТекст ошибки:\n\n{ex}\n\nОжидание {_botSettings.ErrorDelay} секунд перед перезапуском";
+			var message = $"Ошибка в боте с ID ({_botId}).\n\nТекст ошибки:\n\n{ex}\n\nОжидание {_settings.BotSettings.ErrorDelay} секунд перед перезапуском";
 
 			Console.ForegroundColor = ConsoleColor.Red;
 			Console.WriteLine(message);
 
-			var urlString = $"https://api.telegram.org/bot{_botSettings.TgBotToken}/sendMessage?chat_id={_botSettings.TgChatId}&text={message}";
+			var urlString = $"https://api.telegram.org/bot{_settings.AlertSettings.TgBotToken}/sendMessage?chat_id={_settings.AlertSettings.TgChatId}&text={message}";
 			var webclient = new WebClient();
 			webclient.DownloadString(urlString);
 
-			if (!string.IsNullOrEmpty(_botSettings.ErrorUrlHandler))
+			if (!string.IsNullOrEmpty(_settings.AlertSettings.ErrorUrlHandler))
 			{
-				var request = WebRequest.Create(_botSettings.ErrorUrlHandler);
+				var request = WebRequest.Create(_settings.AlertSettings.ErrorUrlHandler);
 				var response = request.GetResponse();
 				response.Dispose();
 			}
@@ -273,12 +273,18 @@ namespace NHB3
 			//_isErrorState = true;
 			_processor.SwitchErrorState(true);
 			_processor.SwicthCycle(false);
-			Thread.Sleep(TimeSpan.FromSeconds(_botSettings.ErrorDelay));
+			Thread.Sleep(TimeSpan.FromSeconds(_settings.BotSettings.ErrorDelay));
 			_processor.SwitchErrorState(false);
 			//_isErrorState = false;
 
 			Console.ForegroundColor = ConsoleColor.White;
 			Console.WriteLine("Перезапуск бота");
+		}
+
+		private void button1_Click(object sender, EventArgs e)
+		{
+			this.ClearOrders();
+			this.ClearOrders();
 		}
 	}
 }
