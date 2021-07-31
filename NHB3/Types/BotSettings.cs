@@ -9,6 +9,7 @@ namespace NHB3.Types
 		public AlertSettings AlertSettings { get; set; }
 		public List<MarketSettings> MarketSettings { get; set; }
 		public OrderCancellationSettings CancellationSettings { get; set; }
+
 	}
 
 	public class AlertSettings

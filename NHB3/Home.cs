@@ -68,9 +68,6 @@ namespace NHB3
 						{
 							toolStripStatusLabel1.Text = "Working";
 							CheckForIllegalCrossThreadCalls = false;
-							Console.ForegroundColor = ConsoleColor.Red;
-							Console.WriteLine(e);
-							Console.ForegroundColor = ConsoleColor.White;
 
 							if (!run)
 							{
@@ -202,7 +199,7 @@ namespace NHB3
 			try
 			{
 				//if (!_processor.CycleIsActive)
-				//	_processor.RunBot();
+				_processor.RunBot();
 			}
 			catch (Exception ex)
 			{

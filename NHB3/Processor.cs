@@ -304,17 +304,22 @@ namespace NHB3
 									{
 										var activeOrder = _activeOrders[i];
 										if (_iteration == 1)
-											this.UpdateOrder(activeOrder, activeOrder.Price, 1);
+										{
+											if (!CompareFloats(activeOrder.OldPrice, activeOrder.Price, 4) || !CompareFloats(activeOrder.Limit, 1, 4))
+												this.PatchOrder(activeOrder, 1);
+										}
 											//this.SetLimit(activeOrder, 1);
 										else
 										{
-											var restOrders = _activeOrders.Skip(i).Where(x => x.RigsCount > 0);
+											var restOrders = _activeOrders.Skip(i+1).Where(x => x.RigsCount > 0);
 											var speedSum = restOrders.Sum(x => x.AcceptedCurrentSpeed);
 											var delta = _currentMarketSettings.OrdersSettings.SummaryCurrentSpeed - speedSum;
 											var limit = delta > minLimit
 												? delta
 												: minLimit;
-											this.UpdateOrder(activeOrder, activeOrder.Price, limit);
+
+											if (!CompareFloats(activeOrder.OldPrice, activeOrder.Price, 4) || !CompareFloats(activeOrder.Limit, limit, 4))
+												this.PatchOrder(activeOrder, limit);
 											//this.SetLimit(activeOrder, limit);
 										}
 									}
@@ -512,13 +517,13 @@ namespace NHB3
 			Order newMainOrder = null;
 
 			//var mainOrderLimitSpeed = currentMarketSettings.MaxLimitSpeed;
-			var myMainOrder = myAlgMarketOrders.OrderByDescending(x => x.Price).FirstOrDefault(x => x.Price >= targetOrder.Price && x.Price <= this.NormalizeFloat(targetPrice + priceRaiseStep, 4));
+			var myMainOrder = myAlgMarketOrders.OrderByDescending(x => x.Price).FirstOrDefault(x => x.Price >= targetOrder.Price && x.Price <= this.NormalizeFloat(targetPrice, 4));
 			if (myMainOrder != null)
 			{
 				//mainOrderLimitSpeed = this.GetMainOrderLimit(algoKey, totalLimit, currentMarketSettings, myAlgMarketOrders, bookAlgMarketOrders, targetOrder.Price, mainOrderLimitSpeed, myMainOrder.Id);
 
 				Console.WriteLine($"\t[{algoKey}]\tНаш главный ордер имеет цену {myMainOrder.Price}");
-				if (myMainOrder.Price > targetOrder.Price && myMainOrder.Price > targetPrice)
+				if (myMainOrder.Price > targetPrice)
 				{
 					//Console.WriteLine($"\t[{algoKey}]\tЦена главного ордера выше цены конкурирующего. Попытка снизить цену.");
 					// Пытаемся снизить цену.
@@ -548,6 +553,8 @@ namespace NHB3
 					//	_ac.updateOrder(algoKey, myMainOrder.Id, myMainOrder.Price.ToString(new CultureInfo("en-US")), mainOrderLimitSpeed.ToString(new CultureInfo("en-US")));
 					Console.WriteLine($"\t[{algoKey}]\tГлавный ордер стоит перед конкурирующим. Изменения не требуются.");
 					newMainOrder = myMainOrder;
+					targetPrice = this.NormalizeFloat(targetPrice, 4);
+					newMainOrder.Price = targetPrice;
 				}
 				else
 				{
@@ -776,6 +783,41 @@ namespace NHB3
 				}
 			}
 			return targetOrder;
+
+		}
+
+		private Order PatchOrder(Order order, float limit)
+		{
+			var alg = _ac.algorithms.FirstOrDefault(x => x["algorithm"].ToString() == _settings.BotSettings.AlgorithmName);
+			var minPrice = float.Parse(alg["minimalOrderAmount"].ToString(), CultureInfo.InvariantCulture);
+
+			var id = order.Id;
+			if (order.Price < order.OldPrice && order.Price > minPrice)
+			{
+				var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
+				var metadata = this.OrdersMetadataList.FirstOrDefault(x => x.Id == id);
+				if (metadata == null)
+				{
+					metadata = new MyOrderMetadata { Id = order.Id, LastPriceDecreasedTime = 0 };
+					this.OrdersMetadataList.Add(metadata);
+				}
+				var difference = currentTimeStamp - metadata.LastPriceDecreasedTime;
+				if (difference > 615)
+				{
+					var price = this.NormalizeFloat(order.Price, 4);
+					var updated = _ac.updateOrder(order.AlgorithmName, order.Id, price.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
+					metadata.LastPriceDecreasedTime = currentTimeStamp;
+					return updated ?? this.SetLimit(order, limit);
+				}
+				else
+					return this.SetLimit(order, limit);
+			}
+			else
+			{
+				var price = this.NormalizeFloat(order.Price, 4);
+				var updated = _ac.updateOrder(order.AlgorithmName, order.Id, price.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
+				return updated;
+			}
 		}
 
 		private Order UpdateOrder(Order order, float price, float limit)
@@ -910,6 +952,7 @@ namespace NHB3
 				myOrder.PoolName = jOrder["pool"]["name"].ToString();
 				myOrder.Active = jOrder["status"]["code"].ToString() == "ACTIVE";
 				myOrder.RigsCount = int.Parse(jOrder["rigsCount"].ToString());
+				myOrder.OldPrice = myOrder.Price;
 				if (myOrder.AlgorithmName.ToLowerInvariant() == _settings.BotSettings.AlgorithmName.ToLowerInvariant() && myOrder.Active)
 					myOrders.Add(myOrder);
 			}

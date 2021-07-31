@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 
 namespace NHB3.Types
 {
@@ -29,5 +30,8 @@ namespace NHB3.Types
 		public float PayedAmount { get; set; }
 		public Guid PoolId { get; set; }
 		public string PoolName { get; set; }
+
+		[JsonIgnore]
+		public float OldPrice { get; set; }
 	}
 }
