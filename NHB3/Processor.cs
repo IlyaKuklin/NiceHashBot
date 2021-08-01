@@ -305,10 +305,10 @@ namespace NHB3
 										var activeOrder = _activeOrders[i];
 										if (_iteration == 1)
 										{
-											if (!CompareFloats(activeOrder.OldPrice, activeOrder.Price, 4) || !CompareFloats(activeOrder.Limit, 1, 4))
-												this.PatchOrder(activeOrder, 1);
+											var limit = _currentMarketSettings.OrdersSettings.SummaryCurrentSpeed;
+											if (!CompareFloats(activeOrder.OldPrice, activeOrder.Price, 4) || !CompareFloats(activeOrder.Limit, limit, 4))
+												this.PatchOrder(activeOrder, limit);
 										}
-											//this.SetLimit(activeOrder, 1);
 										else
 										{
 											var restOrders = _activeOrders.Skip(i+1).Where(x => x.RigsCount > 0);
@@ -317,6 +317,14 @@ namespace NHB3
 											var limit = delta > minLimit
 												? delta
 												: minLimit;
+
+											if (delta > minLimit)
+											{
+												var minLimitByAlgoString = this.MinLimitByAlgoritm[algoKey].ToString().Replace(",", ".");
+												var parts = minLimitByAlgoString.Split('.');
+												var decimals = parts[1].Length;
+												limit = this.NormalizeFloat(limit, decimals);
+											}
 
 											if (!CompareFloats(activeOrder.OldPrice, activeOrder.Price, 4) || !CompareFloats(activeOrder.Limit, limit, 4))
 												this.PatchOrder(activeOrder, limit);
@@ -1006,15 +1014,10 @@ namespace NHB3
 			foreach (var order in myOrders)
 			{
 				if (order.AcceptedCurrentSpeed == 0) continue;
-				Console.WriteLine($"Обработка ордера {order.Id}");
 
 				var spendingPerMinute = order.Price * order.AcceptedCurrentSpeed / 1440;
 				var targetAmount = spendingPerMinute * settings.RefillOrderLimit;
 				var orderAmount = order.AvailableAmount - order.PayedAmount;
-
-				Console.WriteLine($"Ордер тратит в минуту: {spendingPerMinute}");
-				Console.WriteLine($"Умножение на {nameof(settings.RefillOrderLimit)}: {spendingPerMinute} * {settings.RefillOrderLimit} = {targetAmount}");
-				Console.WriteLine($"Баланс ордера: {orderAmount}");
 
 				if (orderAmount < targetAmount)
 				{
@@ -1026,15 +1029,12 @@ namespace NHB3
 					targetBalance = targetBalance * 1.03f;
 					targetBalance = this.NormalizeFloat(targetBalance, 8);
 
-					Console.WriteLine($"Сумма пополнения: {targetBalance}");
 
 					if (targetBalance < 0.001f)
 						targetBalance = 0.001f;
 
 					_ac.refillOrder(order.Id, targetBalance.ToString(new CultureInfo("en-US")));
 				}
-				else
-					Console.WriteLine("Ордер не нуждается в пополнении.");
 
 			}
 
