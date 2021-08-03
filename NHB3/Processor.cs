@@ -525,7 +525,7 @@ namespace NHB3
 			Order newMainOrder = null;
 
 			//var mainOrderLimitSpeed = currentMarketSettings.MaxLimitSpeed;
-			var myMainOrder = myAlgMarketOrders.OrderByDescending(x => x.Price).FirstOrDefault(x => x.Price >= targetOrder.Price && x.Price <= this.NormalizeFloat(targetPrice, 4));
+			var myMainOrder = myAlgMarketOrders.OrderByDescending(x => x.Price).FirstOrDefault(x => x.Price >= targetOrder.Price && x.Price <= this.NormalizeFloat(jsonPrice, 4));
 			if (myMainOrder != null)
 			{
 				//mainOrderLimitSpeed = this.GetMainOrderLimit(algoKey, totalLimit, currentMarketSettings, myAlgMarketOrders, bookAlgMarketOrders, targetOrder.Price, mainOrderLimitSpeed, myMainOrder.Id);
@@ -552,7 +552,7 @@ namespace NHB3
 					// Не получилось снизить цену.
 					else
 					{
-						newMainOrder = this.GetOrderByPriceLimit(jsonPrice, algoKey, myAlgMarketOrders, targetOrder, targetPrice, totalLimit, currentMarketSettings, bookAlgMarketOrders);
+						newMainOrder = this.GetOrderByPriceLimit(jsonPrice, algoKey, myAlgMarketOrders, targetOrder, targetPrice);
 					}
 				}
 				else if (myMainOrder.Price > targetOrder.Price && myMainOrder.Price <= targetPrice)
@@ -581,7 +581,7 @@ namespace NHB3
 			}
 			else
 			{
-				newMainOrder = this.GetOrderByPriceLimit(jsonPrice, algoKey, myAlgMarketOrders, targetOrder, targetPrice, totalLimit, currentMarketSettings, bookAlgMarketOrders);
+				newMainOrder = this.GetOrderByPriceLimit(jsonPrice, algoKey, myAlgMarketOrders, targetOrder, targetPrice);
 			}
 
 			if (newMainOrder == null)
@@ -615,7 +615,7 @@ namespace NHB3
 			return order;
 		}
 
-		private Order GetOrderByPriceLimit(float jsonPrice, string algoKey, List<Order> myAlgMarketOrders, BookOrder targetOrder, float targetPrice, float totalLimit, MarketSettings currentMarketSettings, List<BookOrder> bookAlgMarketOrders)
+		private Order GetOrderByPriceLimit(float jsonPrice, string algoKey, List<Order> myAlgMarketOrders, BookOrder targetOrder, float targetPrice)
 		{
 			//var priceLimit = _settings.PriceLimitToFindOrder == 0.0f
 			//	? targetPrice + Math.Abs(this.DownStepByAlgoritm[algoKey]) * _settings.MinStepsCountToFindOrder
@@ -626,7 +626,7 @@ namespace NHB3
 			var myNextUpperOrder =
 				myAlgMarketOrders
 				.OrderByDescending(x => x.Price)
-				.FirstOrDefault(x => x.Price >= targetOrder.Price && x.Price < priceLimit && x.Price < jsonPrice);
+				.FirstOrDefault(x => x.Price >= targetOrder.Price && x.Price <= targetOrder.Price + priceLimit && x.Price < jsonPrice);
 
 			if (myNextUpperOrder != null)
 			{
