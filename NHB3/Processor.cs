@@ -693,13 +693,14 @@ namespace NHB3
 				//{
 				//var price = this.NormalizeFloat(order.Price, 4);
 				//order.Price = price;
-				
+
 				var newPrice = updated.Price + this.DownStepByAlgoritm[updated.AlgorithmName] < minPrice
 						? minPrice
 						: updated.Price + this.DownStepByAlgoritm[updated.AlgorithmName];
 				var limit = _currentMarketSettings.OrdersSettings.OtherOrdersLimitSettings;
+				limit = RoundLimit(algoKey, limit);
 
-				if (!CompareFloats(newPrice, order.Price,4) || !CompareFloats(limit, order.Limit, 4))
+				if (!CompareFloats(newPrice, order.Price, 4) || !CompareFloats(limit, order.Limit, 4))
 				{
 					this.UpdateOrder(order, newPrice, limit);
 				}
@@ -718,6 +719,22 @@ namespace NHB3
 				//}
 				//}
 			});
+		}
+
+		private float RoundLimit(string algoKey, float limit)
+		{
+			var minLimitByAlgoString = this.MinLimitByAlgoritm[algoKey].ToString().Replace(",", ".");
+			var parts = minLimitByAlgoString.Split('.');
+			var decimals = parts[1].Length;
+			limit  =(float) Math.Round(limit, decimals);
+			limit = this.NormalizeFloat(limit, decimals);
+			if (limit == 0)
+			{
+				limit = this.MinLimitByAlgoritm[algoKey];
+				this.WarnConsole($"Не удалось округлить значение {nameof(_currentMarketSettings.OrdersSettings.OtherOrdersLimitSettings)} " +
+					$"'{_currentMarketSettings.OrdersSettings.OtherOrdersLimitSettings}' до числа с {decimals} числами после запятой. Установка minLimit алгоритма '{limit}'");
+			}
+			return limit;
 		}
 
 		//private float GetMainOrderLimit(string algoKey, float totalLimit, MarketSettings currentMarketSettings, List<Order> myAlgMarketOrders, List<BookOrder> bookAlgMarketOrders, float targetOrderPrice, float mainOrderLimitSpeed, string mainOrderId)
@@ -800,7 +817,7 @@ namespace NHB3
 			var minPrice = float.Parse(alg["minimalOrderAmount"].ToString(), CultureInfo.InvariantCulture);
 
 			var id = order.Id;
-			if (order.Price < order.OldPrice && order.Price > minPrice)
+			if (order.Price < order.OldPrice)
 			{
 				var currentTimeStamp = DateTimeOffset.Now.ToUnixTimeSeconds();
 				var metadata = this.OrdersMetadataList.FirstOrDefault(x => x.Id == id);
@@ -867,11 +884,11 @@ namespace NHB3
 			if (!CompareFloats(order.Limit, limit, 6))
 			{
 				var temp = order;
-				order = _ac.updateOrder(order.AlgorithmName, order.Id, order.Price.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
+				order = _ac.updateOrder(order.AlgorithmName, order.Id, order.OldPrice.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
 				if (order == null)
 				{
 					Thread.Sleep(2000);
-					order = _ac.updateOrder(temp.AlgorithmName, temp.Id, temp.Price.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
+					order = _ac.updateOrder(temp.AlgorithmName, temp.Id, temp.OldPrice.ToString(new CultureInfo("en-US")), limit.ToString(new CultureInfo("en-US")))?.Item1;
 				}
 			}
 			return order;
