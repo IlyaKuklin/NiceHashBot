@@ -292,7 +292,7 @@ namespace NHB3
 					}
 					else if (!needToRunLowerOrdersLogic && !lowerOrdersLogicJustRan)
 					{
-						this.FormOrdersGroup(myAlgMarketOrders, processedOrderIds, algoKey, currentMarketSettings, newMainOrder);
+						this.FormOrdersGroup(myAlgMarketOrders, processedOrderIds, algoKey, currentMarketSettings, newMainOrder, targetOrder.Price);
 
 						var allocationSettings = _currentMarketSettings.OrdersSettings.AllocationSettings;
 						switch (_currentMarketSettings.OrdersSettings.LimitFunction)
@@ -1073,9 +1073,9 @@ namespace NHB3
 			//}
 		}
 
-		private void FormOrdersGroup(List<Order> orders, List<string> processedOrderIds, string algoKey, MarketSettings currentMarketSettings, Order mainOrder)
+		private void FormOrdersGroup(List<Order> orders, List<string> processedOrderIds, string algoKey, MarketSettings currentMarketSettings, Order mainOrder, float targetPrice)
 		{
-			var targetPrice = mainOrder.Price;
+			//var targetPrice = mainOrder.Price;
 			orders = orders.Where(x => x.Id != mainOrder.Id).ToList();
 
 			Console.ForegroundColor = ConsoleColor.Cyan;
